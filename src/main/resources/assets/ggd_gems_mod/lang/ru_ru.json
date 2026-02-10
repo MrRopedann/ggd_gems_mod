@@ -1,0 +1,9 @@
+{
+  "item.ggd_gems_mod.gem": "Самоцвет",
+  "itemGroup.ggd_gems_mod.gems": "Самоцветы",
+  "key.ggd_gems_mod.open_stats": "Открыть статы",
+  "key.ggd_gems_mod.open_stats": "Открыть статы",
+  "key.ggd_gems_mod.open_passives": "Пассивные навыки",
+  "item.ggd_gems_mod.piastre": "Пиастр",
+  "container.repair.cost": "Требуется пиастр: %s"
+}

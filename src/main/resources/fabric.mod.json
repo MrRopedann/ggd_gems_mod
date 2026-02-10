@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "ggd_gems_mod",
+  "version": "${version}",
+  "name": "ggd_gems_mod",
+  "description": "Мод позволяет улучшать экипировку посредством вставки самоцеветов в оружие.",
+  "authors": ["Ropedann"],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/ggd_gems_mod/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-datagen": [
+      "su.ggd.ggd_gems_mod.Ggd_gems_modDataGenerator"
+    ],
+    "client": [
+      "su.ggd.ggd_gems_mod.Ggd_gems_modClient"
+    ],
+    "main": [
+      "su.ggd.ggd_gems_mod.root.Ggd_gems_mod"
+    ]
+  },
+  "mixins": [
+    "ggd_gems_mod.mixins.json",
+    {
+      "config": "ggd_gems_mod.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
