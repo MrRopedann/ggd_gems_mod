@@ -77,13 +77,12 @@ public final class GemTraderNpc {
         float[] rot = lookAt(pos, new Vec3d(player.getX(), player.getEyeY(), player.getZ()));
         entity.refreshPositionAndAngles(pos.x, pos.y, pos.z, rot[0], rot[1]);
 
-        String marker = "\u200Bggd_trader:" + id + "\u200B";
-
-        // теги/имя/бессмертие
         entity.addCommandTag(TAG_PREFIX + id);
-        entity.setCustomName(Text.literal(marker + def.name));
+
+        // отображаем только нормальное имя
+        entity.setCustomName(Text.literal(def.name));
         entity.setCustomNameVisible(def.nameVisible);
-        entity.setInvulnerable(def.invulnerable);
+
 
         if (entity instanceof MobEntity mob) {
             mob.setAiDisabled(def.noAi);

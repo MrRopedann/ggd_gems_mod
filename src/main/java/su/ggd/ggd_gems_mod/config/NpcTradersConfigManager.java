@@ -93,7 +93,10 @@ public final class NpcTradersConfigManager {
             if (t.spawnDistance <= 0) { t.spawnDistance = 2.0; changed = true; }
 
             if (t.trades == null) { t.trades = new java.util.ArrayList<>(); changed = true; }
-            if (t.trades.isEmpty()) { t.trades.addAll(buildDefaultGemTrader().trades); changed = true; }
+            if (t.trades.isEmpty()) {
+                t.trades.addAll(defaultTradesForTrader(t.id));
+                changed = true;
+            }
 
             for (NpcTradersConfig.TradeDef tr : t.trades) {
                 if (tr == null) continue;
@@ -136,20 +139,117 @@ public final class NpcTradersConfigManager {
         return changed;
     }
 
+    private static java.util.List<NpcTradersConfig.TradeDef> defaultTradesForTrader(String traderId) {
+        String id = (traderId == null ? "" : traderId.trim().toLowerCase(java.util.Locale.ROOT));
+        return switch (id) {
+            case "gems" -> buildDefaultGemTrades();
+            case "resources" -> buildDefaultResourceTrades();
+            default -> java.util.List.of(buildDefaultGemTraderSingleRandomTrade()); // безопасный fallback
+        };
+    }
+
+    private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultResourceTrades() {
+        var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+
+        // Камень/строительство
+        out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:cobblestone", 64));
+        out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:dirt", 64));
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:sand", 64));
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:gravel", 64));
+
+        // Дерево
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:oak_log", 16));
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:spruce_log", 16));
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:oak_planks", 64));
+
+        // Свет/выживание
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:coal", 16));
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:torch", 32));
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:string", 16));
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:arrow", 32));
+
+        // Еда (простая)
+        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:bread", 8));
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:cooked_beef", 8));
+
+        // Руды базовые
+        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:iron_ingot", 4));
+        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:copper_ingot", 8));
+        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:redstone", 16));
+        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:lapis_lazuli", 16));
+
+        return out;
+    }
+
+
+    private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultGemTrades() {
+        var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+
+        // цена по умолчанию (можно потом вынести в конфиг)
+        final String currency = "ggd_gems_mod:piastre";
+        final int price = 30;
+
+        GemsConfig gemsCfg = GemsConfigManager.get();
+        if (gemsCfg != null && gemsCfg.gems != null && !gemsCfg.gems.isEmpty()) {
+            for (GemsConfig.GemDef g : gemsCfg.gems) {
+                if (g == null || g.type == null || g.type.isBlank()) continue;
+
+                NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
+                tr.buy = new NpcTradersConfig.StackDef();
+                tr.buy.item = currency;
+                tr.buy.count = price;
+
+                tr.sellGem = new NpcTradersConfig.SellGemDef();
+                tr.sellGem.type = g.type.trim().toLowerCase(java.util.Locale.ROOT);
+                tr.sellGem.level = 1;
+
+                tr.maxUses = 999999;
+                tr.merchantExperience = 0;
+                tr.priceMultiplier = 0.0f;
+
+                out.add(tr);
+            }
+        }
+
+        // Если по какой-то причине гемов нет — оставим “рандомный”
+        if (out.isEmpty()) out.add(buildDefaultGemTraderSingleRandomTrade());
+
+        return out;
+    }
+
+    private static NpcTradersConfig.TradeDef buildDefaultGemTraderSingleRandomTrade() {
+        NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
+        tr.buy = new NpcTradersConfig.StackDef();
+        tr.buy.item = "ggd_gems_mod:piastre";
+        tr.buy.count = 30;
+
+        tr.sellGem = new NpcTradersConfig.SellGemDef();
+        tr.sellGem.type = ""; // пусто => рандом (если у тебя это поддержано в логике торговли)
+        tr.sellGem.level = 1;
+
+        tr.maxUses = 999999;
+        tr.merchantExperience = 0;
+        tr.priceMultiplier = 0.0f;
+        return tr;
+    }
+
+
     private static NpcTradersConfig buildDefault() {
         NpcTradersConfig cfg = new NpcTradersConfig();
+
         cfg.traders.add(buildDefaultGemTrader());
 
-        // пример второго торговца ресурсами
         NpcTradersConfig.TraderDef res = new NpcTradersConfig.TraderDef();
         res.id = "resources";
         res.name = "Скупщик ресурсов";
         res.entityType = "minecraft:villager";
         res.profession = "minecraft:toolsmith";
+        res.spawnDistance = 2.0;
+        res.invulnerable = true;
+        res.noAi = true;
+        res.nameVisible = true;
 
-        res.trades.add(trade("ggd_gems_mod:piastre", 2, "minecraft:coal", 8));
-        res.trades.add(trade("ggd_gems_mod:piastre", 1, "minecraft:cobblestone", 64));
-        res.trades.add(trade("ggd_gems_mod:piastre", 3, "minecraft:oak_log", 16));
+        res.trades.addAll(buildDefaultResourceTrades());
 
         cfg.traders.add(res);
 
@@ -157,24 +257,19 @@ public final class NpcTradersConfigManager {
         return cfg;
     }
 
+
     private static NpcTradersConfig.TraderDef buildDefaultGemTrader() {
         NpcTradersConfig.TraderDef t = new NpcTradersConfig.TraderDef();
         t.id = "gems";
         t.name = "Торговец самоцветами";
         t.entityType = "minecraft:villager";
         t.profession = "minecraft:cleric";
+        t.spawnDistance = 2.0;
+        t.invulnerable = true;
+        t.noAi = true;
+        t.nameVisible = true;
 
-        // по умолчанию: 30 пиастр -> случайный самоцвет 1 лвл
-        NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
-        tr.buy = new NpcTradersConfig.StackDef();
-        tr.buy.item = "ggd_gems_mod:piastre";
-        tr.buy.count = 30;
-
-        tr.sellGem = new NpcTradersConfig.SellGemDef();
-        tr.sellGem.type = ""; // пусто => будет выбран случайный из gems.json
-        tr.sellGem.level = 1;
-
-        t.trades.add(tr);
+        t.trades.addAll(buildDefaultGemTrades());
         return t;
     }
 

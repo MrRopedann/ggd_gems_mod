@@ -35,6 +35,8 @@ public class Ggd_gems_mod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+
+
         // Damage indicator
         PayloadTypeRegistry.playS2C().register(DamageNet.DAMAGE_INDICATOR_ID, DamageNet.DAMAGE_INDICATOR_CODEC);
 
