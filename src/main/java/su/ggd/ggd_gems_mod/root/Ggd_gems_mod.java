@@ -11,8 +11,6 @@ import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
 import su.ggd.ggd_gems_mod.currency.PiastreDrops;
-import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
-import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncServer;
 import su.ggd.ggd_gems_mod.net.ModNet;
 import su.ggd.ggd_gems_mod.net.DamageNet;
@@ -29,7 +27,7 @@ import su.ggd.ggd_gems_mod.passive.net.PassiveSkillsSyncServer;
 import su.ggd.ggd_gems_mod.passive.net.PassiveSkillsUpgradeServer;
 
 import su.ggd.ggd_gems_mod.passive.api.PassiveSkillEffects;
-
+import su.ggd.ggd_gems_mod.mob.MobLevels;
 
 public class Ggd_gems_mod implements ModInitializer {
 
@@ -37,8 +35,6 @@ public class Ggd_gems_mod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-
-
         // Damage indicator
         PayloadTypeRegistry.playS2C().register(DamageNet.DAMAGE_INDICATOR_ID, DamageNet.DAMAGE_INDICATOR_CODEC);
 
@@ -52,7 +48,6 @@ public class Ggd_gems_mod implements ModInitializer {
 
         PayloadTypeRegistry.playS2C().register(PassiveSkillsNet.UPGRADE_RESULT_ID, PassiveSkillsNet.UPGRADE_RESULT_CODEC);
 
-
         PassiveSkillEffects.register(new OakRootsEffect());
         PassiveSkillEffects.register(new LuckyMinerEffect());
         PassiveSkillEffects.register(new DiligentStudentEffect());
@@ -62,14 +57,6 @@ public class Ggd_gems_mod implements ModInitializer {
         PassiveSkillEffects.register(new BonusHpEffect());
         PassiveSkillEffects.register(new BowTrajectoryEffect());
         PassiveSkillEffects.register(new LightHandEffect());
-        PassiveSkillEffects.register(new IronStomachEffect());
-        PassiveSkillEffects.register(new SkinMutationEffect());
-        PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.BeastInstinctEffect());
-        PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.LiterateCreatorEffect());
-
-        // Inventory sorting
-        PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
-
 
         // 1) Реестры/компоненты
         ModDataComponents.initialize();
@@ -92,6 +79,9 @@ public class Ggd_gems_mod implements ModInitializer {
         NpcDamageBlocker.init();
         PiastreDrops.register();
 
+        // 4.5) Уровни мобов (сервер)
+        MobLevels.init();
+
         // 5) Пассивки — hooks + серверный обработчик апгрейда
         PassiveSkillHooks.init();
         PassiveSkillsUpgradeServer.init();
@@ -105,7 +95,5 @@ public class Ggd_gems_mod implements ModInitializer {
             StatsCommand.register(dispatcher);
             WeaponStatsCommand.register(dispatcher);
         });
-
-        InventorySortServer.init();
     }
 }
