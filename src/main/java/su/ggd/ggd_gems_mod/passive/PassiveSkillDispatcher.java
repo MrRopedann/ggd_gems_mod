@@ -25,6 +25,94 @@ import java.util.Locale;
 public final class PassiveSkillDispatcher {
     private PassiveSkillDispatcher() {}
 
+    public static double getCraftRefundChance(ServerWorld world, ServerPlayerEntity player, ItemStack crafted) {
+        if (world == null || player == null || crafted == null || crafted.isEmpty()) return 0.0;
+
+        PassiveSkillsConfig cfg = PassiveSkillsConfigManager.get();
+        if (cfg == null || cfg.skills == null) return 0.0;
+
+        PassiveSkillsState st = PassiveSkillsState.get(world);
+
+        double best = 0.0;
+
+        for (PassiveSkillsConfig.PassiveSkillDef def : cfg.skills) {
+            if (def == null) continue;
+
+            String id = safeLower(def.id);
+            if (id == null) continue;
+
+            int level = st.getLevel(player.getUuid(), id);
+            if (level <= 0) continue;
+
+            PassiveSkillEffect eff = PassiveSkillEffects.get(resolveEffectId(def));
+            if (eff instanceof OnCraftRefundChance hook) {
+                try {
+                    double c = hook.getRefundChance(world, player, crafted, def, level);
+                    if (c > best) best = c;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (best < 0.0) best = 0.0;
+        if (best > 1.0) best = 1.0;
+        return best;
+    }
+
+
+    public static void onEntityDamagedByPlayer(ServerWorld world, ServerPlayerEntity player, net.minecraft.entity.LivingEntity victim,
+                                               net.minecraft.entity.damage.DamageSource source, float amount) {
+        if (world == null || player == null || victim == null || source == null) return;
+        if (amount <= 0f) return;
+
+        su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfig cfg = su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfigManager.get();
+        if (cfg == null || cfg.skills == null) return;
+
+        su.ggd.ggd_gems_mod.passive.state.PassiveSkillsState st = su.ggd.ggd_gems_mod.passive.state.PassiveSkillsState.get(world);
+
+        for (var def : cfg.skills) {
+            if (def == null || def.id == null || def.id.isBlank()) continue;
+
+            int level = st.getLevel(player.getUuid(), def.id.toLowerCase(java.util.Locale.ROOT));
+            if (level <= 0) continue;
+
+            var eff = su.ggd.ggd_gems_mod.passive.api.PassiveSkillEffects.get(resolveEffectId(def));
+            if (eff instanceof su.ggd.ggd_gems_mod.passive.api.OnEntityDamagedByPlayer hook) {
+                try {
+                    hook.onEntityDamagedByPlayer(world, player, victim, source, amount, def, level);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+
+    public static void onPlayerDamaged(ServerWorld world, ServerPlayerEntity player, net.minecraft.entity.damage.DamageSource source, float amount) {
+        if (world == null || player == null || source == null) return;
+        if (amount <= 0f) return;
+
+        PassiveSkillsConfig cfg = PassiveSkillsConfigManager.get();
+        if (cfg == null || cfg.skills == null) return;
+
+        PassiveSkillsState st = PassiveSkillsState.get(world);
+
+        for (PassiveSkillsConfig.PassiveSkillDef def : cfg.skills) {
+            if (def == null) continue;
+
+            String id = safeLower(def.id);
+            if (id == null) continue;
+
+            int level = st.getLevel(player.getUuid(), id);
+            if (level <= 0) continue;
+
+            PassiveSkillEffect eff = PassiveSkillEffects.get(resolveEffectId(def));
+            if (eff instanceof OnPlayerDamaged hook) {
+                try {
+                    hook.onPlayerDamaged(world, player, source, amount, def, level);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+
     public static void onToolUseBefore(ServerWorld world, ServerPlayerEntity player, ItemStack tool) {
         if (world == null || player == null || tool == null || tool.isEmpty()) return;
 

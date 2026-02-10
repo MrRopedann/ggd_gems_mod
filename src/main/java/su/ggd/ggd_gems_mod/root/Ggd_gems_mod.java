@@ -58,6 +58,12 @@ public class Ggd_gems_mod implements ModInitializer {
         PassiveSkillEffects.register(new BonusHpEffect());
         PassiveSkillEffects.register(new BowTrajectoryEffect());
         PassiveSkillEffects.register(new LightHandEffect());
+        PassiveSkillEffects.register(new IronStomachEffect());
+        PassiveSkillEffects.register(new SkinMutationEffect());
+        PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.BeastInstinctEffect());
+        PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.LiterateCreatorEffect());
+
+
 
 
 

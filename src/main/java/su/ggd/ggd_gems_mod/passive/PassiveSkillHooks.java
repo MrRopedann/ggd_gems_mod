@@ -1,9 +1,14 @@
 package su.ggd.ggd_gems_mod.passive;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -27,11 +32,100 @@ public final class PassiveSkillHooks {
 
     private static final Map<UUID, Integer> BREAK_DAMAGE_BEFORE = new HashMap<>();
     private static final Map<UUID, PendingToolDamage> PENDING_TOOL_DAMAGE = new HashMap<>();
+    private static final Map<UUID, EatTrack> IRON_STOMACH_EAT = new HashMap<>();
 
     private record PendingToolDamage(Hand hand, int prevDamage, int delayTicks) {}
+    private record EatTrack(Hand hand, Item item, int startCount, long endGameTime) {}
+
+
+    // ===== iron_stomach (food handling) =====
+// Поддерживаем:
+// - гнилая плоть + сырая курятина: без голода/отравления, но мало насыщают
+// - сырое мясо (и рыба): можно есть без голода, без штрафов
+    private static final Item[] IRON_STOMACH_FOODS = new Item[] {
+            Items.ROTTEN_FLESH,
+            Items.CHICKEN,
+            Items.BEEF,
+            Items.PORKCHOP,
+            Items.MUTTON,
+            Items.RABBIT,
+            Items.COD,
+            Items.SALMON
+    };
+
 
     public static void init() {
+        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof net.minecraft.entity.LivingEntity victim)) return true;
+
+            net.minecraft.entity.Entity attacker = source.getAttacker();
+            if (!(attacker instanceof net.minecraft.server.network.ServerPlayerEntity sp)) return true;
+            if (!(sp.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld sw)) return true;
+
+            PassiveSkillDispatcher.onEntityDamagedByPlayer(sw, sp, victim, source, amount);
+            return true;
+        });
+
+
         // 1) block break hooks
+        // 0) iron_stomach: разрешаем есть даже на полном голоде и убираем штрафы
+        UseItemCallback.EVENT.register((player, world, hand) -> {
+            ItemStack stack = player.getStackInHand(hand);
+            if (stack.isEmpty()) return ActionResult.PASS;
+
+            Item item = stack.getItem();
+            if (!isIronStomachFood(item)) return ActionResult.PASS;
+
+            // CLIENT: запускаем использование, чтобы появилась анимация еды
+            if (world.isClient()) {
+                // НИЧЕГО не форсим на клиенте — иначе будет анимация без серверного расхода
+                return ActionResult.PASS;
+            }
+
+
+            // SERVER: тоже форсим использование (иначе при полном голоде ванилла не даст есть)
+            if (!(player instanceof ServerPlayerEntity sp)) return ActionResult.PASS;
+            if (!(world instanceof ServerWorld sw)) return ActionResult.PASS;
+
+            int lvl = getSkillLevel(sw, sp, "iron_stomach");
+            if (lvl <= 0) return ActionResult.PASS;
+
+            EatTrack existing = IRON_STOMACH_EAT.get(sp.getUuid());
+
+            // Если уже "едим" этот же предмет этой же рукой — НЕ перезапускаем таймер
+            if (existing != null
+                    && existing.hand() == hand
+                    && existing.item() == item
+                    && sw.getTime() < existing.endGameTime()) {
+
+                sp.setCurrentHand(hand);
+                return ActionResult.CONSUME;
+            }
+
+            // Иначе стартуем новый цикл еды
+            int useTicks = 32; // стандартная длительность еды
+            long endTime = sw.getTime() + useTicks;
+
+            IRON_STOMACH_EAT.put(sp.getUuid(), new EatTrack(hand, item, stack.getCount(), endTime));
+
+            sp.setCurrentHand(hand);
+            return ActionResult.CONSUME;
+
+
+        });
+
+        // 1.3) player damaged hooks (skin_mutation and similar)
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof ServerPlayerEntity sp)) return true;
+            if (!(sp.getEntityWorld() instanceof ServerWorld sw)) return true;
+
+            PassiveSkillDispatcher.onPlayerDamaged(sw, sp, source, amount);
+            return true;
+        });
+
+
+        ServerTickEvents.END_SERVER_TICK.register(PassiveSkillHooks::ironStomachTick);
+
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClient()) return true;
             if (!(player instanceof ServerPlayerEntity sp)) return true;
@@ -181,4 +275,105 @@ public final class PassiveSkillHooks {
                 || stack.isIn(ItemTags.SHOVELS)
                 || stack.isIn(ItemTags.HOES);
     }
+
+    private static boolean hasSkill(ServerWorld world, ServerPlayerEntity player, String skillId) {
+        if (world == null || player == null) return false;
+
+        PassiveSkillsState st = PassiveSkillsState.get(world);
+        if (st == null) return false;
+
+        return st.getLevel(player.getUuid(), skillId) > 0;
+    }
+
+
+    private static boolean isIronStomachFood(Item item) {
+        if (item == null) return false;
+        for (Item it : IRON_STOMACH_FOODS) if (it == item) return true;
+        return false;
+    }
+
+    private static void ironStomachTick(MinecraftServer server) {
+        for (ServerPlayerEntity sp : server.getPlayerManager().getPlayerList()) {
+            ServerWorld sw = sp.getEntityWorld();
+
+            EatTrack t = IRON_STOMACH_EAT.get(sp.getUuid());
+            if (t == null) continue;
+
+            if (sw.getTime() < t.endGameTime()) continue;
+
+            ItemStack handStack = sp.getStackInHand(t.hand());
+            if (handStack.isEmpty() || handStack.getItem() != t.item()) {
+                IRON_STOMACH_EAT.remove(sp.getUuid());
+                continue;
+            }
+
+            // если уже как-то изменилось — не трогаем
+            if (handStack.getCount() != t.startCount()) {
+                IRON_STOMACH_EAT.remove(sp.getUuid());
+                continue;
+            }
+
+            sp.stopUsingItem();
+            consumeIronStomachFood(sp, sw, t.hand());
+            sp.removeStatusEffect(StatusEffects.HUNGER);
+            sp.removeStatusEffect(StatusEffects.POISON);
+            IRON_STOMACH_EAT.remove(sp.getUuid());
+        }
+    }
+
+    private static int getSkillLevel(ServerWorld world, ServerPlayerEntity player, String skillId) {
+        PassiveSkillsState st = PassiveSkillsState.get(world);
+        if (st == null) return 0;
+        return st.getLevel(player.getUuid(), skillId);
+    }
+
+
+    private static boolean isPenaltyFood(Item item) {
+        return item == Items.ROTTEN_FLESH || item == Items.CHICKEN;
+    }
+
+    private static void consumeIronStomachFood(ServerPlayerEntity player, ServerWorld world, Hand hand) {
+        ItemStack stack = player.getStackInHand(hand);
+        if (stack.isEmpty()) return;
+
+        Item item = stack.getItem();
+
+        // "мало насыщает" для rotten flesh / raw chicken
+        int hunger;
+        float saturation;
+
+        if (item == Items.ROTTEN_FLESH || item == Items.CHICKEN) {
+            hunger = 2;
+            saturation = 0.1f;
+        } else if (item == Items.COD || item == Items.SALMON) {
+            hunger = 2;
+            saturation = 0.1f;
+        } else if (item == Items.MUTTON) {
+            hunger = 2;
+            saturation = 0.3f;
+        } else {
+            // BEEF / PORKCHOP / RABBIT
+            hunger = 3;
+            saturation = 0.3f;
+        }
+
+        // списываем 1 предмет
+        if (!player.isCreative()) {
+            stack.decrement(1);
+            if (stack.isEmpty()) {
+                player.setStackInHand(hand, ItemStack.EMPTY);
+            }
+        }
+
+        // добавляем еду (даже при полном голоде)
+        player.getHungerManager().add(hunger, saturation);
+
+        // гарантированно чистим (на всякий)
+        player.removeStatusEffect(StatusEffects.HUNGER);
+        player.removeStatusEffect(StatusEffects.POISON);
+    }
+
+
+
+
 }

@@ -14,7 +14,7 @@ loom {
     splitEnvironmentSourceSets()
     runs {
         client {
-            programArgs "--username", "Ropedann"
+            programArgs "--username", "Ropedann3"
         }
     }
     mods {

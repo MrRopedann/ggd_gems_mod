@@ -99,6 +99,23 @@ public final class PassiveSkillsConfigManager {
                 changed = true;
             }
 
+            // ---- ensure default skills exist ----
+            changed |= ensureSkillExists(cfg,
+                    "skin_mutation",
+                    "Мутация кожи",
+                    "Если моб наносит вам урон, он получает отражённый урон: 0.15 за уровень (на 10 уровне — 1.5).",
+                    "minecraft:netherite_chestplate"
+            );
+
+            changed |= ensureSkillExistsFixed(cfg,
+                    "beast_instinct",
+                    "Звериная интуиция",
+                    "Пассивные мобы (коровы, свиньи и т.д.) не убегают, если их атаковать.",
+                    "minecraft:wheat",
+                    1, 50, 0
+            );
+
+
             // fill defaults for known skills if params empty
             changed |= fillDefaultsIfEmpty(def);
 
@@ -120,6 +137,27 @@ public final class PassiveSkillsConfigManager {
 
         return changed;
     }
+
+    private static boolean ensureSkillExists(
+            PassiveSkillsConfig cfg,
+            String id,
+            String name,
+            String desc,
+            String icon
+    ) {
+        if (cfg.skills == null) cfg.skills = new ArrayList<>();
+
+        for (var s : cfg.skills) {
+            if (s != null && id.equalsIgnoreCase(s.id)) {
+                return false; // уже есть
+            }
+        }
+
+        PassiveSkillsConfig.PassiveSkillDef s = skill(id, name, desc, icon);
+        cfg.skills.add(s);
+        return true;
+    }
+
 
     private static boolean normalizeTabs(PassiveSkillsConfig cfg) {
         boolean changed = false;
@@ -274,6 +312,14 @@ public final class PassiveSkillsConfigManager {
                 def.params.put("refund", 1);
                 changed = true;
             }
+            case "skin_mutation" -> {
+                def.params.put("damagePerLevel", 0.15);
+                changed = true;
+            }
+            case "literate_creator" -> {
+                def.params.put("chancePerLevel", 0.015);
+                changed = true;
+            }
 
             default -> {}
         }
@@ -311,6 +357,40 @@ public final class PassiveSkillsConfigManager {
                 "minecraft:iron_pickaxe"
         ));
 
+        def.skills.add(skillFixed(
+                "iron_stomach",
+                "Железный желудок",
+                "Гнилую плоть и сырую курятину можно есть без голода и отравления (но мало насыщает). Сырое мясо можно есть без штрафов.",
+                "minecraft:rotten_flesh",
+                1,   // maxLevel
+                50,  // costBase (50 уровней персонажа)
+                0    // costPerLevel
+        ));
+        def.skills.add(skill(
+                "skin_mutation",
+                "Мутация кожи",
+                "Если моб наносит вам урон, он получает отражённый урон: 0.15 за уровень (на 10 уровне — 1.5).",
+                "minecraft:netherite_chestplate"
+        ));
+        def.skills.add(skillFixed(
+                "beast_instinct",
+                "Звериная интуиция",
+                "Пассивные мобы (коровы, свиньи и т.д.) не убегают, если их атаковать.",
+                "minecraft:wheat",
+                1,   // maxLevel
+                50,  // costBase
+                0    // costPerLevel
+        ));
+        def.skills.add(skill(
+                "literate_creator",
+                "Грамотный создатель",
+                "При крафте инструментов, оружия и брони даёт 1.5% шанс за уровень, что случайный материал из рецепта не израсходуется (на 10 ур. — 15%).",
+                "minecraft:crafting_table"
+        ));
+
+
+
+
 
         // If these exist in your mod, keep them in default too
         def.skills.add(skill("melee_damage", "Сила удара", "Увеличивает урон ближнего боя.", "minecraft:iron_sword"));
@@ -326,7 +406,7 @@ public final class PassiveSkillsConfigManager {
         def.tabs.add(tab("combat", "Бой", "minecraft:iron_sword",
                 List.of("melee_damage", "ranged_damage", "bow_trajectory")));
         def.tabs.add(tab("survival", "Выживание", "minecraft:golden_apple",
-                List.of("bonus_hp")));
+                List.of("bonus_hp", "iron_stomach", "beast_instinct", "literate_creator")));
         def.tabs.add(tab("movement", "Передвижение", "minecraft:leather_boots",
                 List.of("move_speed", "diligent_student")));
 
@@ -350,6 +430,24 @@ public final class PassiveSkillsConfigManager {
         fillDefaultsIfEmpty(s);
         return s;
     }
+
+    private static PassiveSkillsConfig.PassiveSkillDef skillFixed(
+            String id, String name, String desc, String icon,
+            int maxLevel, int costBase, int costPerLevel
+    ) {
+        PassiveSkillsConfig.PassiveSkillDef s = new PassiveSkillsConfig.PassiveSkillDef();
+        s.id = id;
+        s.name = name;
+        s.description = desc;
+        s.maxLevel = maxLevel;
+        s.iconItem = icon;
+        s.costBase = costBase;
+        s.costPerLevel = costPerLevel;
+        s.params = new HashMap<>();
+        fillDefaultsIfEmpty(s);
+        return s;
+    }
+
 
     private static void write(PassiveSkillsConfig cfg) throws IOException {
         String json = GSON.toJson(cfg);
@@ -391,4 +489,15 @@ public final class PassiveSkillsConfigManager {
             return Integer.toHexString(s.hashCode());
         }
     }
+
+    private static boolean ensureSkillExistsFixed(PassiveSkillsConfig cfg, String id, String name, String desc, String icon,
+                                                  int maxLevel, int costBase, int costPerLevel) {
+        if (cfg.skills == null) cfg.skills = new ArrayList<>();
+        for (var s : cfg.skills) {
+            if (s != null && id.equalsIgnoreCase(s.id)) return false;
+        }
+        cfg.skills.add(skillFixed(id, name, desc, icon, maxLevel, costBase, costPerLevel));
+        return true;
+    }
+
 }
