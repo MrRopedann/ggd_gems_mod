@@ -12,6 +12,8 @@ import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 
 import su.ggd.ggd_gems_mod.hud.MobHealthBarHud;
+import su.ggd.ggd_gems_mod.inventory.sort.client.InventorySortButtons;
+import su.ggd.ggd_gems_mod.inventory.sort.client.InventorySortClient;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncClient;
 import su.ggd.ggd_gems_mod.config.GemsConfig;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
@@ -57,7 +59,9 @@ public class Ggd_gems_modClient implements ClientModInitializer {
 
         BowTrajectoryRenderer.init();
 
-
+        // Сортировка инвентаря/сундуков (Shift+R переключение режима)
+        InventorySortClient.init();
+        InventorySortButtons.init();
 
         ItemTooltipCallback.EVENT.register((stack, context, tooltipType, lines) -> {
             if (stack.isOf(ModItems.GEM)) {

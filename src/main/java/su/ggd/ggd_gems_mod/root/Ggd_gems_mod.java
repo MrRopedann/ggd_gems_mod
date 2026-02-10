@@ -11,6 +11,8 @@ import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
 import su.ggd.ggd_gems_mod.currency.PiastreDrops;
+import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
+import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncServer;
 import su.ggd.ggd_gems_mod.net.ModNet;
 import su.ggd.ggd_gems_mod.net.DamageNet;
@@ -65,10 +67,8 @@ public class Ggd_gems_mod implements ModInitializer {
         PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.BeastInstinctEffect());
         PassiveSkillEffects.register(new su.ggd.ggd_gems_mod.passive.effects.LiterateCreatorEffect());
 
-
-
-
-
+        // Inventory sorting
+        PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
 
 
         // 1) Реестры/компоненты
@@ -105,5 +105,7 @@ public class Ggd_gems_mod implements ModInitializer {
             StatsCommand.register(dispatcher);
             WeaponStatsCommand.register(dispatcher);
         });
+
+        InventorySortServer.init();
     }
 }

@@ -5,5 +5,10 @@
   "key.ggd_gems_mod.open_stats": "Открыть статы",
   "key.ggd_gems_mod.open_passives": "Пассивные навыки",
   "item.ggd_gems_mod.piastre": "Пиастр",
-  "container.repair.cost": "Требуется пиастр: %s"
+  "container.repair.cost": "Требуется пиастр: %s",
+  "key.categories.ggd_gems_mod": "GGD",
+  "key.ggd_gems_mod.sort_inventory": "Сортировка инвентаря/контейнера",
+  "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s",
+  "text.ggd_gems_mod.sort_button": "Sort",
+  "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s"
 }
