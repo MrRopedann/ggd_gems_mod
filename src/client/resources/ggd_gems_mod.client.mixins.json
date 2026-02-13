@@ -1,11 +1,19 @@
 {
-  "required": false,
+  "required": true,
   "minVersion": "0.8",
-  "package": "su.ggd.ggd_gems_mod.mixin",
+  "package": "su.ggd.ggd_gems_mod.mixin.client",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [
+  "refmap": "ggd_gems_mod.refmap.json",
+  "client": [
+    "ClickableWidgetAccessor",
+    "HandledScreenAccessor",
+    "ScreenAddDrawableChildInvoker",
+    "HandledScreenMixin",
+    "ScreenDrawablesAccessor",
+    "RecipeBookScreenAccessor"
+
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }
