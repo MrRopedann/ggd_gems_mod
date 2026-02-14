@@ -2,6 +2,7 @@ package su.ggd.ggd_gems_mod.mixin.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.screen.ScreenHandler;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,8 +22,10 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> implements Inv
 
     @Inject(method = "init", at = @At("TAIL"))
     private void ggd$initTail(CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        // ✅ не показываем в креативе
+        if ((Object) this instanceof CreativeInventoryScreen) return;
 
+        MinecraftClient client = MinecraftClient.getInstance();
         ScreenAddDrawableChildInvoker inv = (ScreenAddDrawableChildInvoker) (Object) this;
 
         if (ggd$modeBtn == null) {
@@ -39,6 +42,9 @@ public abstract class HandledScreenMixin<T extends ScreenHandler> implements Inv
 
     @Inject(method = "render", at = @At("TAIL"))
     private void ggd$renderTail(net.minecraft.client.gui.DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        // ✅ не трогаем креатив
+        if ((Object) this instanceof CreativeInventoryScreen) return;
+
         InventorySortButtons.reposition((HandledScreen<?>)(Object)this);
     }
 

@@ -20,39 +20,71 @@ public final class InventorySorter {
 
     public static void sortCurrentScreen(ServerPlayerEntity player, InventorySortType type) {
         if (player == null) return;
+
         ScreenHandler handler = player.currentScreenHandler;
         if (handler == null) return;
 
+        Inventory playerInv = player.getInventory();
+
+        // Инвентарь игрока (вкладка E и т.п.)
         if (handler instanceof PlayerScreenHandler) {
-            sortPlayerMainInventory(handler, player.getInventory(), type);
+            sortPlayerInventoryInAnyHandler(handler, playerInv, type);
             handler.sendContentUpdates();
             return;
         }
 
-        // ✅ Сундуки/бочки и т.п.
+        // Сундуки/бочки и т.п. — сортируем только контейнер
         if (handler instanceof GenericContainerScreenHandler) {
-            sortContainerOnly(handler, player.getInventory(), type);
+            sortContainerOnly(handler, playerInv, type);
             handler.sendContentUpdates();
             return;
         }
 
-        // ✅ Шалкер (у него отдельный handler)
+        // Шалкер — сортируем только контейнер
         if (handler instanceof ShulkerBoxScreenHandler) {
-            sortContainerOnly(handler, player.getInventory(), type);
+            sortContainerOnly(handler, playerInv, type);
             handler.sendContentUpdates();
+            return;
         }
+
+        // ✅ Все остальные экраны (верстак, печка, наковальня, стол зачарований, торговля и т.д.)
+        // сортируем ТОЛЬКО инвентарь игрока внутри этого screen handler'а.
+        sortPlayerInventoryInAnyHandler(handler, playerInv, type);
+        handler.sendContentUpdates();
     }
+
+    private static void sortPlayerInventoryInAnyHandler(ScreenHandler handler, Inventory playerInv, InventorySortType type) {
+        List<Integer> slotIds = new ArrayList<>();
+
+        for (int i = 0; i < handler.slots.size(); i++) {
+            Slot slot = handler.slots.get(i);
+            if (slot == null) continue;
+
+            if (slot.inventory != playerInv) continue;
+
+            int invIndex = slot.getIndex(); // индекс внутри player inventory (0..35)
+            // ✅ исключаем хотбар
+            if (invIndex >= 9 && invIndex < 36) {
+                slotIds.add(i);
+            }
+        }
+
+        sortSlots(handler, slotIds, type);
+    }
+
 
     private static void sortPlayerMainInventory(ScreenHandler handler, Inventory playerInv, InventorySortType type) {
         List<Integer> slotIds = new ArrayList<>();
 
         // 36 слотов: 0..35 (хотбар+основной), без брони/оффхэнда/крафта
-        for (int invIndex = 0; invIndex < 36; invIndex++) {
+        // ✅ Только основной инвентарь: 9..35 (исключаем хотбар 0..8)
+        for (int invIndex = 9; invIndex < 36; invIndex++) {
             Slot slot = findPlayerInventorySlot(handler, playerInv, invIndex);
             if (slot == null) continue;
             int slotId = handler.slots.indexOf(slot);
             if (slotId >= 0) slotIds.add(slotId);
         }
+
 
         sortSlots(handler, slotIds, type);
     }

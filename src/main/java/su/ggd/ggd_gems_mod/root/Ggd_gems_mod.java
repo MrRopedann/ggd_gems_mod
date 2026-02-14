@@ -11,6 +11,8 @@ import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
 import su.ggd.ggd_gems_mod.currency.PiastreDrops;
+import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
+import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncServer;
 import su.ggd.ggd_gems_mod.net.ModNet;
 import su.ggd.ggd_gems_mod.net.DamageNet;
@@ -47,6 +49,9 @@ public class Ggd_gems_mod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(PassiveSkillsNet.UPGRADE_PASSIVE_SKILL_ID, PassiveSkillsNet.UPGRADE_PASSIVE_SKILL_CODEC);
 
         PayloadTypeRegistry.playS2C().register(PassiveSkillsNet.UPGRADE_RESULT_ID, PassiveSkillsNet.UPGRADE_RESULT_CODEC);
+        // Inventory sort (client -> server)
+        PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
+
 
         PassiveSkillEffects.register(new OakRootsEffect());
         PassiveSkillEffects.register(new LuckyMinerEffect());
@@ -72,6 +77,10 @@ public class Ggd_gems_mod implements ModInitializer {
         // 3) Синк на клиент при входе
         GemsConfigSyncServer.init();
         PassiveSkillsSyncServer.init();
+
+        // Inventory sort receiver
+        InventorySortServer.init();
+
 
         // 4) Контент
         ModItems.initialize();

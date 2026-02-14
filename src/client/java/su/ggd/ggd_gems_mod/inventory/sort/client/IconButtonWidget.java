@@ -2,10 +2,12 @@ package su.ggd.ggd_gems_mod.inventory.sort.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ingame.RecipeBookScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.PlainTextContent;
+import su.ggd.ggd_gems_mod.mixin.client.RecipeBookScreenAccessor;
 
 import java.util.function.Supplier;
 
@@ -52,19 +54,33 @@ public final class IconButtonWidget extends ButtonWidget {
             int off = 0;
 
             // parent должен быть Screen. Если у тебя поле называется иначе — используй именно Screen ссылку.
-            if (scr instanceof net.minecraft.client.gui.screen.ingame.RecipeBookScreen<?> rb) {
-                var w = ((su.ggd.ggd_gems_mod.mixin.client.RecipeBookScreenAccessor) rb).ggd$getRecipeBook();
+            if (scr instanceof RecipeBookScreen<?> rb) {
+                var w = ((RecipeBookScreenAccessor) rb).ggd$getRecipeBook();
                 off = (w != null && w.isOpen()) ? 77 : 0;
             }
 
             this.setX(ggd$baseX + off);
         }
 
-        // 2) Потом считаем координаты и рисуем
-        int ix = this.getX() + (this.width - 16) / 2;
-        int iy = this.getY() + (this.height - 16) / 2;
+        final int iconSize = 16;
+        final float scale = 0.75f;
 
-        ctx.drawItem(icon, ix, iy);
+        final int scaled = Math.round(iconSize * scale);
+
+// центрирование
+        int ix = this.getX() + (this.width - scaled) / 2;
+        int iy = this.getY() + (this.height - scaled) / 2;
+
+        var matrices = ctx.getMatrices();
+
+        matrices.pushMatrix();
+        matrices.translate(ix, iy);
+        matrices.scale(scale, scale);
+
+        ctx.drawItem(icon, 0, 0);
+
+        matrices.popMatrix();
+
     }
 
 

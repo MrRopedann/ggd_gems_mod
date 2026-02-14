@@ -31,6 +31,8 @@ public final class InventorySortButtons {
 
     // Только для окна инвентаря игрока (как на твоём скрине)
     private static final int INVENTORY_SCREEN_Y_OFFSET = 20;
+    private static final int CHEST_SCREEN_Y_OFFSET = 4; // подбери значение
+
 
     public static void init() {
         // Скролл только по наведённой кнопке (как Inventory-Sorter)
@@ -115,28 +117,29 @@ public final class InventorySortButtons {
         int padding = 4;
         int w = 20, h = 20;
 
-        Anchor pos;
+        Anchor pos = anchorAbovePlayerInventoryRight(box, layout, w, h, btns.gap, padding);
+
+        int newY = pos.y;
 
         if (screen instanceof InventoryScreen) {
-            // база: как и раньше — справа над инвентарём игрока
-            pos = anchorAbovePlayerInventoryRight(box, layout, w, h, btns.gap, padding);
-
-            // только для инвентаря — опускаем ниже
-            int newY = pos.y + INVENTORY_SCREEN_Y_OFFSET;
-            int minY = box.top + padding;
-            int maxY = box.top + box.bgH - h - padding;
-            newY = clamp(newY, minY, maxY);
-
-            pos = new Anchor(pos.modeX, pos.sortX, newY);
-        } else {
-            pos = anchorAbovePlayerInventoryRight(box, layout, w, h, btns.gap, padding);
+            // Инвентарь игрока
+            newY = pos.y + INVENTORY_SCREEN_Y_OFFSET;
+        }
+        else if (screen instanceof net.minecraft.client.gui.screen.ingame.GenericContainerScreen) {
+            // Сундук
+            newY = pos.y + CHEST_SCREEN_Y_OFFSET;
         }
 
-        // ВАЖНО: сохраняем baseX (initialX) — дальше X будет двигаться в IconButtonWidget при открытии книги
+        int minY = box.top + padding;
+        int maxY = box.top + box.bgH - h - padding;
+        newY = clamp(newY, minY, maxY);
+
+        pos = new Anchor(pos.modeX, pos.sortX, newY);
+
+        // ВАЖНО: сохраняем baseX — X дальше двигается внутри IconButtonWidget
         btns.mode.ggd$setBaseX(pos.modeX);
         btns.sort.ggd$setBaseX(pos.sortX);
 
-        // Y можно выставлять напрямую
         btns.mode.setY(pos.y);
         btns.sort.setY(pos.y);
 
@@ -146,8 +149,11 @@ public final class InventorySortButtons {
         btns.sort.setWidth(w);
         btns.sort.setHeight(h);
 
-        btns.mode.setTooltip(Tooltip.of(tt("Режим: " + InventorySortClient.getCurrentSortType().name())));
+        btns.mode.setTooltip(
+                Tooltip.of(tt("Режим: " + InventorySortClient.getCurrentSortType().name()))
+        );
     }
+
 
     private static Anchor anchorAbovePlayerInventoryRight(
             GuiBox box,
