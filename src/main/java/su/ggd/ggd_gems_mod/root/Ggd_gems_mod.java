@@ -2,12 +2,14 @@ package su.ggd.ggd_gems_mod.root;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import su.ggd.ggd_gems_mod.command.GemCommands;
 import su.ggd.ggd_gems_mod.command.StatsAllCommand;
 import su.ggd.ggd_gems_mod.command.StatsCommand;
 import su.ggd.ggd_gems_mod.command.WeaponStatsCommand;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
+import su.ggd.ggd_gems_mod.config.MobRulesConfigManager;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
 import su.ggd.ggd_gems_mod.currency.PiastreDrops;
@@ -52,6 +54,7 @@ public class Ggd_gems_mod implements ModInitializer {
         // Inventory sort (client -> server)
         PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
 
+        MobRulesConfigManager.get();
 
         PassiveSkillEffects.register(new OakRootsEffect());
         PassiveSkillEffects.register(new LuckyMinerEffect());
@@ -70,6 +73,7 @@ public class Ggd_gems_mod implements ModInitializer {
         GemsConfigManager.loadOrCreateDefault();
         NpcTradersConfigManager.loadOrCreateDefault();
         EconomyConfigManager.loadOrCreateDefault();
+        MobRulesConfigManager.get();
 
         // Пассивки
         PassiveSkillsConfigManager.loadOrCreateDefault();

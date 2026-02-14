@@ -9,7 +9,13 @@
     "PlayerEntityBreakSpeedMixin",
     "ExperienceOrbEntityMixin",
     "LivingEntityDamageMixin",
-    "CraftingResultSlotMixin"
+    "CraftingResultSlotMixin",
+    "MobEntityDaylightMixin",
+    "EscapeSunlightGoalMixin",
+    "AvoidSunlightGoalMixin",
+    "GoalSunAvoidMixin"
+
+
   ],
   "injectors": {
     "defaultRequire": 1
