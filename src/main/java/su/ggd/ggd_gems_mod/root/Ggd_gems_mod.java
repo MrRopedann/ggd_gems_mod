@@ -15,6 +15,7 @@ import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
 import su.ggd.ggd_gems_mod.currency.PiastreDrops;
 import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
 import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
+import su.ggd.ggd_gems_mod.mob.DayHostileSpawner;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncServer;
 import su.ggd.ggd_gems_mod.net.ModNet;
 import su.ggd.ggd_gems_mod.net.DamageNet;
@@ -55,6 +56,8 @@ public class Ggd_gems_mod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
 
         MobRulesConfigManager.get();
+
+        DayHostileSpawner.init();
 
         PassiveSkillEffects.register(new OakRootsEffect());
         PassiveSkillEffects.register(new LuckyMinerEffect());
