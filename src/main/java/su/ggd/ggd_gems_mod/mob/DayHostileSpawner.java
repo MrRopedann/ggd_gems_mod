@@ -20,8 +20,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import su.ggd.ggd_gems_mod.config.MobRulesConfig;
 import su.ggd.ggd_gems_mod.config.MobRulesConfigManager;
 
@@ -44,11 +42,6 @@ import java.util.WeakHashMap;
 public final class DayHostileSpawner {
     private DayHostileSpawner() {}
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("ggd_gems_mod/day_spawner");
-
-    // Включай только на отладку. Лучше логировать только попытки/успехи.
-    private static final boolean DEBUG = true;
-
     private static final int MIN_DIST = 24;
     private static final int MAX_DIST = 128;
 
@@ -56,7 +49,6 @@ public final class DayHostileSpawner {
     private static final Map<RegistryKey<World>, Integer> WORLD_TICKS = new WeakHashMap<>();
 
     public static void init() {
-        LOGGER.info("[DaySpawner] Initialized");
         ServerTickEvents.END_WORLD_TICK.register(DayHostileSpawner::onWorldTick);
     }
 
@@ -74,24 +66,9 @@ public final class DayHostileSpawner {
 
         int cap = computeMonsterCap(cfg);
         int current = countHostiles(world);
-        if (current >= cap) {
-            if (DEBUG) {
-                LOGGER.info("[DaySpawner] Skip: cap reached (hostiles={} cap={})", current, cap);
-            }
-            return;
-        }
+        if (current >= cap) return;
 
         int attempts = MathHelper.clamp(cfg.daytimeSpawnAttempts, 1, 64);
-
-        LOGGER.info("[DaySpawner] World={} players={} hostiles={} cap={} attempts={} ignoreLight={} maxLight={}",
-                world.getRegistryKey().getValue(),
-                world.getPlayers().size(),
-                current,
-                cap,
-                attempts,
-                cfg.daytimeIgnoreLight,
-                MathHelper.clamp(cfg.daytimeMaxLight, 0, 15)
-        );
 
         for (int i = 0; i < attempts; i++) {
             if (current >= cap) break;
@@ -138,30 +115,17 @@ public final class DayHostileSpawner {
         if (nearest < MIN_DIST || nearest > MAX_DIST) return false;
 
         // поверхность
-        if (!isValidGround(world, ground)) {
-            if (DEBUG) LOGGER.info("[DaySpawner] Invalid ground at {}", ground);
-            return false;
-        }
+        if (!isValidGround(world, ground)) return false;
 
-        // 2 блока воздуха
-        if (!world.getBlockState(spawnPos).getCollisionShape(world, spawnPos).isEmpty()) {
-            if (DEBUG) LOGGER.info("[DaySpawner] Not enough space (collision) at {}", spawnPos);
-            return false;
-        }
-        if (!world.getBlockState(spawnPos.up()).getCollisionShape(world, spawnPos.up()).isEmpty()) {
-            if (DEBUG) LOGGER.info("[DaySpawner] Not enough space (collision) at {}", spawnPos.up());
-            return false;
-        }
-
+        // 2 блока воздуха (по коллизии)
+        if (!world.getBlockState(spawnPos).getCollisionShape(world, spawnPos).isEmpty()) return false;
+        if (!world.getBlockState(spawnPos.up()).getCollisionShape(world, spawnPos.up()).isEmpty()) return false;
 
         // свет: если НЕ игнорируем — ограничиваем максимумом
         if (!cfg.daytimeIgnoreLight) {
             int light = world.getLightLevel(spawnPos);
             int max = MathHelper.clamp(cfg.daytimeMaxLight, 0, 15);
-            if (light > max) {
-                if (DEBUG) LOGGER.info("[DaySpawner] Light too high at {} (light={}, max={})", spawnPos, light, max);
-                return false;
-            }
+            if (light > max) return false;
         }
 
         EntityType<? extends MobEntity> type = pickHostileType(world, spawnPos);
@@ -173,39 +137,18 @@ public final class DayHostileSpawner {
                 world.getRandom().nextFloat() * 360.0f, 0.0f
         );
 
-        // ванильные проверки
+        // проверки
         if (!cfg.daytimeIgnoreLight) {
-            // если мы НЕ игнорируем свет — можно оставить ванильную NATURAL-проверку
-            if (!SpawnRestriction.canSpawn(type, world, SpawnReason.NATURAL, spawnPos, world.getRandom())) {
-                if (DEBUG) LOGGER.info("[DaySpawner] SpawnRestriction failed for {} at {}", type.toString(), spawnPos);
-                return false;
-            }
+            if (!SpawnRestriction.canSpawn(type, world, SpawnReason.NATURAL, spawnPos, world.getRandom())) return false;
         } else {
-            // режим "спавн на свету": НЕ используем ванильный NATURAL restriction
-            if (!customCanSpawnOnSurface(world, spawnPos)) {
-                if (DEBUG) LOGGER.info("[DaySpawner] Custom spawn rule failed at {}", spawnPos);
-                return false;
-            }
+            if (!customCanSpawnOnSurface(world, spawnPos)) return false;
         }
-
 
         mob.initialize(world, world.getLocalDifficulty(spawnPos),
                 cfg.daytimeIgnoreLight ? SpawnReason.EVENT : SpawnReason.NATURAL,
                 null);
 
-
-        boolean result = world.spawnEntity(mob);
-        if (result) {
-            LOGGER.info("[DaySpawner] Spawned {} at {} {} {} (light={})",
-                    mob.getType().getTranslationKey(),
-                    spawnPos.getX(), spawnPos.getY(), spawnPos.getZ(),
-                    world.getLightLevel(spawnPos)
-            );
-        } else if (DEBUG) {
-            LOGGER.info("[DaySpawner] Spawn failed after checks at {}", spawnPos);
-        }
-
-        return result;
+        return world.spawnEntity(mob);
     }
 
     private static double nearestPlayerDistance(ServerWorld world, BlockPos pos) {
@@ -226,10 +169,8 @@ public final class DayHostileSpawner {
         if (!world.getBlockState(spawnPos).isAir()) return false;
         if (!world.getBlockState(spawnPos.up()).isAir()) return false;
 
-        // можно добавить ограничение по высоте мира, если нужно
         return true;
     }
-
 
     private static boolean isValidGround(ServerWorld world, BlockPos ground) {
         BlockState st = world.getBlockState(ground);
