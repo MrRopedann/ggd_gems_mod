@@ -14,6 +14,16 @@ import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
 
 import java.lang.reflect.Method;
 import java.util.Deque;
+import net.minecraft.client.util.InputUtil;
+import org.lwjgl.glfw.GLFW;
+
+import net.minecraft.entity.attribute.EntityAttribute;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.registry.entry.RegistryEntry;
+import su.ggd.ggd_gems_mod.mob.MobLevelUtil;
+
+
 
 public final class MobHealthBarHud implements HudRenderCallback {
 
@@ -160,16 +170,46 @@ public final class MobHealthBarHud implements HudRenderCallback {
         int fg = (aFg << 24) | 0xCC2222;
         int textColor = (aText << 24) | 0xFFFFFF;
 
-        // Имя уже содержит уровень + 🛡/⚔ со значениями с сервера
-        String title = e.getDisplayName().getString();
-        drawScaledText(ctx, tr, title, x, top - (int) (10 * barScale), textColor, barScale * 0.85f, true);
+        // ПОДРОБНОСТИ (уровень/имя/атака/защита) показываем только при зажатом SHIFT
+        if (isShiftDown(mc)) {
+            int lvl = su.ggd.ggd_gems_mod.mob.MobLevelClientCache.get(e.getId());
 
+            String baseName = e.getType().getName().getString();
+            double armor = getAttrValue(e, net.minecraft.entity.attribute.EntityAttributes.ARMOR);
+            double atk   = getAttrValue(e, net.minecraft.entity.attribute.EntityAttributes.ATTACK_DAMAGE);
+
+            String title = "[Lv " + lvl + "] " + baseName + " (🛡 " + trim2(armor) + " ⚔ " + trim2(atk) + ")";
+            drawScaledText(ctx, tr, title, x, top - (int) (10 * barScale), textColor, barScale * 0.85f, true);
+        }
+
+
+        // ХП бар и число ХП — всегда
         ctx.fill(left, top, left + w, top + h, bg);
         ctx.fill(left, top, left + filled, top + h, fg);
 
         String inside = formatHp(hpF) + "/" + formatHp(maxF);
         drawScaledText(ctx, tr, inside, x, top + h / 2 - 4, textColor, barScale * TEXT_SCALE, true);
     }
+
+    private static double getAttrValue(LivingEntity e, RegistryEntry<EntityAttribute> attr) {
+        EntityAttributeInstance inst = e.getAttributeInstance(attr);
+        if (inst == null) return 0.0;
+        return inst.getValue();
+    }
+
+    private static String trim2(double v) {
+        String s = String.format(java.util.Locale.ROOT, "%.2f", v);
+        return s.replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+
+    private static boolean isShiftDown(MinecraftClient mc) {
+        var window = mc.getWindow();
+        return InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_LEFT_SHIFT)
+                || InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_RIGHT_SHIFT);
+    }
+
+
 
     private static String formatHp(float v) {
         float rounded = Math.round(v * 10f) / 10f;

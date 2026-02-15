@@ -2,6 +2,7 @@ package su.ggd.ggd_gems_mod.mob;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
+import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ExperienceOrbEntity;
@@ -12,10 +13,12 @@ import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.passive.WanderingTraderEntity;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -69,14 +72,39 @@ public final class MobLevels {
             if (world == null || entity == null) return;
             if (!(entity instanceof MobEntity mob)) return;
             if (isOurTraderNpc(mob)) return;
+            if (isExcluded(mob)) return;
+            if (isOurTraderNpc(mob)) return;
+
 
             normalizeBaseOnce(mob);
             ensureLevelAndApply(world, mob);
         });
 
+        EntityTrackingEvents.START_TRACKING.register((Entity entity, ServerPlayerEntity player) -> {
+            if (!(entity instanceof MobEntity mob)) return;
+            if (isOurTraderNpc(mob)) return;
+            if (isExcluded(mob)) return;
+            if (isOurTraderNpc(mob)) return;
+
+
+            // уровень уже есть (или выставится при load), но на всякий
+            if (!MobLevelUtil.hasLevelTag(mob)) {
+                if (mob.getEntityWorld() instanceof ServerWorld world) {
+                    normalizeBaseOnce(mob);
+                    ensureLevelAndApply(world, mob);
+                }
+            }
+
+            int lvl = MobLevelUtil.getLevel(mob);
+            su.ggd.ggd_gems_mod.net.MobLevelSyncServer.sendTo(player, mob, lvl);
+        });
+
+
         ServerLivingEntityEvents.AFTER_DEATH.register((LivingEntity entity, DamageSource src) -> {
             if (!(entity.getEntityWorld() instanceof ServerWorld world)) return;
             if (!(entity instanceof MobEntity mob)) return;
+            if (isOurTraderNpc(mob)) return;
+            if (isExcluded(mob)) return;
             if (isOurTraderNpc(mob)) return;
 
             int lvl = MobLevelUtil.getLevel(mob);
@@ -86,6 +114,17 @@ public final class MobLevels {
             world.spawnEntity(new ExperienceOrbEntity(world, mob.getX(), mob.getY(), mob.getZ(), extra));
         });
     }
+
+    // Только жители исключены из системы уровней
+    private static boolean isExcluded(MobEntity mob) {
+        return mob instanceof VillagerEntity || mob instanceof WanderingTraderEntity;
+    }
+    /* Все пасивыне мобы исключабтся из системы уровней
+    private static boolean isExcluded(MobEntity mob) {
+        // Все пассивные (включая жителей) исключаем из системы уровней
+        return mob instanceof PassiveEntity;
+    }
+    */
 
     private static void normalizeBaseOnce(MobEntity mob) {
         if (mob.getCommandTags().contains(TAG_BASE_NORMALIZED)) return;
@@ -126,12 +165,25 @@ public final class MobLevels {
             lvl = MobLevelUtil.getLevel(mob);
         }
 
-        // 1) применяем скейлинг
         applyLevelScaling(mob, lvl);
 
-        // 2) и после скейлинга — обновляем имя (чтобы показывало актуальные статы)
-        applyLevelNameWithStats(mob, lvl);
+        // ВАНИЛЛУ НЕ ТРОГАЕМ: иначе появится имя при наведении
+        clearGeneratedLevelName(mob);
+
+        // Синхронизируем уровень на клиент для HUD
+        su.ggd.ggd_gems_mod.net.MobLevelSyncServer.send(mob, lvl);
+
     }
+
+    private static void clearGeneratedLevelName(MobEntity mob) {
+        // чистим только то, что ставил наш мод
+        if (mob.getCommandTags().contains(TAG_LEVEL_NAME)) {
+            mob.setCustomName(null);
+            mob.setCustomNameVisible(false);
+            mob.removeCommandTag(TAG_LEVEL_NAME);
+        }
+    }
+
 
     private static int computeLevel(ServerWorld world, MobEntity mob) {
         BlockPos spawn = world.getLevelProperties().getSpawnPoint().getPos();

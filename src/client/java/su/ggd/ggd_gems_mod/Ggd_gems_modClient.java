@@ -18,6 +18,7 @@ import su.ggd.ggd_gems_mod.net.GemsConfigSyncClient;
 import su.ggd.ggd_gems_mod.config.GemsConfig;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.gem.GemData;
+import su.ggd.ggd_gems_mod.net.MobLevelSyncClient;
 import su.ggd.ggd_gems_mod.passive.BowTrajectoryRenderer;
 import su.ggd.ggd_gems_mod.passive.effects.*;
 import su.ggd.ggd_gems_mod.registry.ModItems;
@@ -36,10 +37,12 @@ public class Ggd_gems_modClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        MobLevelSyncClient.init();
         SocketedGemsTooltip.init();
         DamageIndicatorClient.init();
         MobHealthBarHud.init();
         DamagePopupTracker.init();
+
 
         // Синк конфига самоцветов
         GemsConfigSyncClient.init();

@@ -17,6 +17,7 @@ import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
 import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
 import su.ggd.ggd_gems_mod.mob.DayHostileSpawner;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncServer;
+import su.ggd.ggd_gems_mod.net.MobLevelNet;
 import su.ggd.ggd_gems_mod.net.ModNet;
 import su.ggd.ggd_gems_mod.net.DamageNet;
 import su.ggd.ggd_gems_mod.npc.NpcDamageBlocker;
@@ -54,6 +55,9 @@ public class Ggd_gems_mod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(PassiveSkillsNet.UPGRADE_RESULT_ID, PassiveSkillsNet.UPGRADE_RESULT_CODEC);
         // Inventory sort (client -> server)
         PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
+
+        PayloadTypeRegistry.playS2C().register(MobLevelNet.MOB_LEVEL_ID, MobLevelNet.MOB_LEVEL_CODEC);
+
 
         MobRulesConfigManager.get();
 
