@@ -8,13 +8,13 @@ import net.minecraft.client.gui.ScreenRect;
 import net.minecraft.client.gui.navigation.GuiNavigation;
 import net.minecraft.client.gui.navigation.GuiNavigationPath;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
-import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -27,23 +27,33 @@ import java.util.*;
 
 public class PassiveSkillsScreen extends Screen {
 
-    private static final int BASE_PANEL_W = 360;
+    // окно
+    private static final int BASE_PANEL_W = 280;
     private static final int BASE_PANEL_H = 240;
 
     private static final int PAD_X = 12;
 
     private static final int ICON_BOX = 20;
-    private static final int BTN_W = 150;
+
+    // кнопка апгрейда "+"
+    private static final int UPGRADE_BTN_W = 22;
     private static final int BTN_H = 20;
+    private static final int RIGHT_BTN_PAD = 6;
 
-    // Tabs
-    private static final int TAB_H = 18;
-    private static final int TAB_GAP = 4;
-    private static final int HEADER_H = 72; // title + player lvl + tabs + padding
+    // header
+    private static final int TITLE_Y = 12;
+    private static final int PLAYER_LV_Y = 26;
 
-    // Rows
-    private static final int ROW_H = 64;
-    private static final int DESC_LINE_H = 10;
+    // dropdown
+    private static final int TAB_DD_Y = 46;
+    private static final int TAB_DD_H = 18;
+    private static final int TAB_DD_LIST_ROW_H = 18;
+    private static final int TAB_DD_LIST_PAD = 2;
+    private static final int TAB_DD_MAX_VISIBLE = 7;
+    private static final int TAB_DD_GAP_BELOW = 6; // зазор между списком и контентом
+
+    // строки
+    private static final int ROW_H = 32;
 
     // scrollbar
     private static final int SCROLLBAR_W = 6;
@@ -51,16 +61,32 @@ public class PassiveSkillsScreen extends Screen {
     private static final int SCROLLBAR_MIN_THUMB_H = 14;
 
     private final Map<String, ButtonWidget> upgradeButtons = new HashMap<>();
-    private final Map<String, ButtonWidget> tabButtons = new HashMap<>();
 
-    // локальное сообщение (рисуется в окне)
+    // dropdown state
+    private ButtonWidget tabDropdownBtn;
+    private boolean tabDropdownOpen = false;
+    private int tabDropdownScroll = 0;
+
+    // bounds
+    private int tabDdX, tabDdY, tabDdW, tabDdH;
+
+    // list bounds (computed dynamically)
+    private int tabListX, tabListY, tabListW, tabListH;
+
+    private List<TabEntry> tabs = Collections.emptyList();
+
+    // costs
+    private final Map<String, Integer> visibleCosts = new HashMap<>();
+    private final Map<String, Boolean> visibleCanUpgrade = new HashMap<>();
+
+    // ui message
     private Text uiMessage = null;
     private int uiMessageTicks = 0;
 
     // selected tab
     private String selectedTabId = "all";
 
-    // visible list for current tab
+    // visible skills for selected tab
     private List<PassiveSkillsConfig.PassiveSkillDef> visibleSkills = Collections.emptyList();
 
     // scroll in rows
@@ -85,12 +111,17 @@ public class PassiveSkillsScreen extends Screen {
         super.init();
 
         upgradeButtons.clear();
-        tabButtons.clear();
+        visibleCosts.clear();
+        visibleCanUpgrade.clear();
 
         PassiveSkillsConfig cfg = PassiveSkillsConfigManager.get();
         if (cfg == null) return;
 
-        // rebuild visible list
+        this.tabs = buildTabs(cfg);
+        if (tabs.stream().noneMatch(t -> Objects.equals(t.id, selectedTabId))) {
+            selectedTabId = "all";
+        }
+
         visibleSkills = computeVisibleSkills(cfg);
 
         int panelW = Math.min(BASE_PANEL_W, this.width - 40);
@@ -98,44 +129,26 @@ public class PassiveSkillsScreen extends Screen {
         int left = (this.width - panelW) / 2;
         int top = (this.height - panelH) / 2;
 
-        // ---- Tabs (buttons) ----
-        // Always have "all"
-        List<PassiveSkillsConfig.TabDef> tabs = new ArrayList<>();
-        PassiveSkillsConfig.TabDef all = new PassiveSkillsConfig.TabDef();
-        all.id = "all";
-        all.name = "Все";
-        all.iconItem = null;
-        all.skillIds = Collections.emptyList();
-        tabs.add(all);
+        // dropdown button bounds
+        tabDdX = left + PAD_X;
+        tabDdY = top + TAB_DD_Y;
+        tabDdW = panelW - PAD_X * 2;
+        tabDdH = TAB_DD_H;
 
-        if (cfg.tabs != null) tabs.addAll(cfg.tabs);
+        tabDropdownBtn = ButtonWidget.builder(
+                getSelectedTabLabel(),
+                b -> {
+                    tabDropdownOpen = !tabDropdownOpen;
+                    // пересобираем, т.к. меняется headerH и расположение контента
+                    this.clearChildren();
+                    this.init();
+                }
+        ).dimensions(tabDdX, tabDdY, tabDdW, tabDdH).build();
 
-        int tabsX = left + PAD_X;
-        int tabsY = top + 46; // under title + player lv
-        int tabsAreaW = panelW - PAD_X * 2;
+        addDrawableChild(tabDropdownBtn);
 
-        // simple equal width buttons
-        int count = Math.max(1, tabs.size());
-        int tabW = Math.max(44, (tabsAreaW - (count - 1) * TAB_GAP) / count);
-
-        for (int i = 0; i < tabs.size(); i++) {
-            PassiveSkillsConfig.TabDef t = tabs.get(i);
-            if (t == null || t.id == null) continue;
-
-            int x = tabsX + i * (tabW + TAB_GAP);
-            ButtonWidget tabBtn = ButtonWidget.builder(
-                    Text.literal((t.name == null || t.name.isBlank()) ? t.id : t.name),
-                    b -> {
-                        selectedTabId = t.id;
-                        scroll = 0;
-                        this.clearChildren();
-                        this.init();
-                    }
-            ).dimensions(x, tabsY, tabW, TAB_H).build();
-
-            addDrawableChild(tabBtn);
-            tabButtons.put(t.id, tabBtn);
-        }
+        // list bounds (computed based on current open state)
+        recomputeTabListBounds();
 
         // ---- Content + upgrade buttons (visible only) ----
         ScrollContext sc = computeScrollContext(visibleSkills.size());
@@ -154,16 +167,16 @@ public class PassiveSkillsScreen extends Screen {
             }
 
             int rowRight = left + panelW - PAD_X;
-            int btnX = rowRight - BTN_W;
+            int btnX = rowRight - RIGHT_BTN_PAD - UPGRADE_BTN_W;
             int btnY = y + (ROW_H - BTN_H) / 2;
 
             ButtonWidget btn = ButtonWidget.builder(
-                    Text.literal("Улучшить"),
+                    Text.literal("+"),
                     b -> {
                         ClientPlayNetworking.send(new PassiveSkillsNet.UpgradePassiveSkillPayload(def.id));
                         showUiMessage(Text.literal("Запрос улучшения отправлен..."), 40);
                     }
-            ).dimensions(btnX, btnY, BTN_W, BTN_H).build();
+            ).dimensions(btnX, btnY, UPGRADE_BTN_W, BTN_H).build();
 
             addDrawableChild(btn);
             upgradeButtons.put(def.id, btn);
@@ -172,24 +185,44 @@ public class PassiveSkillsScreen extends Screen {
         }
 
         refreshButtons();
-        refreshTabsVisual();
     }
 
-    private void refreshTabsVisual() {
-        for (var e : tabButtons.entrySet()) {
-            String id = e.getKey();
-            ButtonWidget b = e.getValue();
-            if (b == null) continue;
-            b.active = true;
+    private void recomputeTabListBounds() {
+        tabListX = tabDdX;
+        tabListY = tabDdY + tabDdH + 2;
+        tabListW = tabDdW;
 
-            // визуально выделим выбранную вкладку: просто меняем текст (без кастом-рендера)
-            String base = b.getMessage().getString();
-            if (Objects.equals(id, selectedTabId)) {
-                if (!base.startsWith("> ")) b.setMessage(Text.literal("> " + base));
-            } else {
-                if (base.startsWith("> ")) b.setMessage(Text.literal(base.substring(2)));
+        int visible = Math.min(TAB_DD_MAX_VISIBLE, Math.max(1, tabs.size()));
+        tabListH = visible * TAB_DD_LIST_ROW_H + TAB_DD_LIST_PAD * 2;
+
+        tabDropdownScroll = MathHelper.clamp(tabDropdownScroll, 0, Math.max(0, tabs.size() - TAB_DD_MAX_VISIBLE));
+    }
+
+    private List<TabEntry> buildTabs(PassiveSkillsConfig cfg) {
+        List<TabEntry> out = new ArrayList<>();
+        out.add(new TabEntry("all", "Все"));
+
+        if (cfg.tabs != null) {
+            for (var t : cfg.tabs) {
+                if (t == null || t.id == null || t.id.isBlank()) continue;
+                String name = (t.name == null || t.name.isBlank()) ? t.id : t.name;
+                out.add(new TabEntry(t.id, name));
             }
         }
+
+        tabDropdownScroll = MathHelper.clamp(tabDropdownScroll, 0, Math.max(0, out.size() - TAB_DD_MAX_VISIBLE));
+        return out;
+    }
+
+    private Text getSelectedTabLabel() {
+        String name = selectedTabId;
+        for (var t : tabs) {
+            if (Objects.equals(t.id, selectedTabId)) {
+                name = t.name;
+                break;
+            }
+        }
+        return Text.literal("Вкладка: " + name + " \u25BE");
     }
 
     private List<PassiveSkillsConfig.PassiveSkillDef> computeVisibleSkills(PassiveSkillsConfig cfg) {
@@ -210,7 +243,6 @@ public class PassiveSkillsScreen extends Screen {
             return new ArrayList<>(cfg.skills);
         }
 
-        // Build byId if not present
         Map<String, PassiveSkillsConfig.PassiveSkillDef> byId = cfg.byId;
         if (byId == null || byId.isEmpty()) {
             byId = new HashMap<>();
@@ -228,6 +260,18 @@ public class PassiveSkillsScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        int mx = (int) mouseX;
+        int my = (int) mouseY;
+
+        if (tabDropdownOpen && isMouseOverTabList(mx, my) && tabs.size() > TAB_DD_MAX_VISIBLE) {
+            int delta = (int) Math.signum(verticalAmount);
+            if (delta != 0) {
+                int max = Math.max(0, tabs.size() - TAB_DD_MAX_VISIBLE);
+                tabDropdownScroll = MathHelper.clamp(tabDropdownScroll - delta, 0, max);
+                return true;
+            }
+        }
+
         if (visibleSkills == null) return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
 
         ScrollContext sc = computeScrollContext(visibleSkills.size());
@@ -244,24 +288,46 @@ public class PassiveSkillsScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
-    // ===== NEW INPUT SIGNATURES (1.21.11) =====
-
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
-        // scrollbar interactions first
-        if (click.button() == 0 && isMouseOverScrollbar((int) click.x(), (int) click.y())) {
+        int mx = (int) click.x();
+        int my = (int) click.y();
+
+        // dropdown list interactions first
+        if (click.button() == 0 && tabDropdownOpen) {
+            if (isMouseOverTabList(mx, my)) {
+                int idx = (my - (tabListY + TAB_DD_LIST_PAD)) / TAB_DD_LIST_ROW_H;
+                int actual = tabDropdownScroll + idx;
+                if (idx >= 0 && actual >= 0 && actual < tabs.size()) {
+                    TabEntry chosen = tabs.get(actual);
+                    selectedTabId = chosen.id;
+                    tabDropdownOpen = false;
+                    scroll = 0;
+                    this.clearChildren();
+                    this.init();
+                    return true;
+                }
+                return true;
+            } else if (!isMouseOverTabButton(mx, my)) {
+                tabDropdownOpen = false;
+                this.clearChildren();
+                this.init();
+                return true;
+            }
+        }
+
+        // scrollbar interactions
+        if (click.button() == 0 && isMouseOverScrollbar(mx, my)) {
             ScrollContext sc = computeScrollContext(visibleSkills == null ? 0 : visibleSkills.size());
             if (sc.maxScroll > 0) {
                 ScrollbarGeom g = computeScrollbarGeom(sc, visibleSkills.size());
 
-                int my = (int) click.y();
                 if (my >= g.thumbY && my <= g.thumbY + g.thumbH) {
                     draggingScrollbar = true;
                     dragStartMouseY = my;
                     dragStartScroll = scroll;
                     return true;
                 } else {
-                    // click on track => jump
                     float t = (float) (my - g.trackY) / (float) Math.max(1, g.trackH);
                     int target = Math.round(t * sc.maxScroll);
                     scroll = MathHelper.clamp(target, 0, sc.maxScroll);
@@ -321,8 +387,9 @@ public class PassiveSkillsScreen extends Screen {
             if (uiMessageTicks == 0) uiMessage = null;
         }
 
+        if (tabDropdownBtn != null) tabDropdownBtn.setMessage(getSelectedTabLabel());
+
         refreshButtons();
-        refreshTabsVisual();
     }
 
     private void refreshButtons() {
@@ -332,7 +399,6 @@ public class PassiveSkillsScreen extends Screen {
 
         int playerLevel = mc.player.experienceLevel;
 
-        // обновляем только существующие (видимые) кнопки
         for (PassiveSkillsConfig.PassiveSkillDef def : visibleSkills) {
             if (def == null) continue;
 
@@ -344,9 +410,12 @@ public class PassiveSkillsScreen extends Screen {
             int cost = costForNext(def, next);
 
             boolean canUpgrade = next <= def.maxLevel && playerLevel >= cost;
-
             btn.active = canUpgrade;
-            btn.setMessage(Text.literal("Улучшить (" + cost + " ур.)"));
+
+            visibleCosts.put(def.id, cost);
+            visibleCanUpgrade.put(def.id, canUpgrade);
+
+            btn.setTooltip(Tooltip.of(Text.literal("Апгрейд: " + cost + " ур. (до " + next + "/" + def.maxLevel + ")")));
         }
     }
 
@@ -373,7 +442,6 @@ public class PassiveSkillsScreen extends Screen {
                 if (!line.isEmpty()) out.add(Text.literal(line.toString()));
                 line.setLength(0);
 
-                // если слово само длиннее maxWidth — режем по ширине
                 if (textRenderer.getWidth(w) > maxWidth) {
                     String cut = textRenderer.trimToWidth(w, maxWidth);
                     out.add(Text.literal(cut));
@@ -403,17 +471,15 @@ public class PassiveSkillsScreen extends Screen {
         context.fill(left, top, left + 1, top + panelH, 0xFF777777);
         context.fill(left + panelW - 1, top, left + panelW, top + panelH, 0xFF777777);
 
-        // widgets (tabs + buttons)
         super.render(context, mouseX, mouseY, delta);
 
-        // header
-        context.drawTextWithShadow(textRenderer, this.title, left + 12, top + 12, 0xFFFFFFFF);
+        // header text
+        context.drawTextWithShadow(textRenderer, this.title, left + 12, top + TITLE_Y, 0xFFFFFFFF);
 
         MinecraftClient mc = MinecraftClient.getInstance();
         int playerLevel = mc.player == null ? 0 : mc.player.experienceLevel;
-        context.drawTextWithShadow(textRenderer, Text.literal("Уровни игрока: " + playerLevel), left + 12, top + 26, 0xFFAAAAAA);
+        context.drawTextWithShadow(textRenderer, Text.literal("Уровни игрока: " + playerLevel), left + 12, top + PLAYER_LV_Y, 0xFFAAAAAA);
 
-        // local message
         if (uiMessage != null) {
             int msgW = textRenderer.getWidth(uiMessage);
             int msgX = left + (panelW - msgW) / 2;
@@ -421,6 +487,52 @@ public class PassiveSkillsScreen extends Screen {
             context.drawTextWithShadow(textRenderer, uiMessage, msgX, msgY, 0xFFFFFF55);
         }
 
+        // render dropdown list above content area
+        recomputeTabListBounds();
+        TabEntry hoveredTab = null;
+
+        if (tabDropdownOpen) {
+            int x0 = tabListX;
+            int y0 = tabListY;
+            int x1 = tabListX + tabListW;
+            int y1 = tabListY + tabListH;
+
+            context.fill(x0, y0, x1, y1, 0xEE1A1A1A);
+            context.fill(x0, y0, x1, y0 + 1, 0xFF777777);
+            context.fill(x0, y1 - 1, x1, y1, 0xFF777777);
+            context.fill(x0, y0, x0 + 1, y1, 0xFF777777);
+            context.fill(x1 - 1, y0, x1, y1, 0xFF777777);
+
+            int visible = Math.min(TAB_DD_MAX_VISIBLE, Math.max(1, tabs.size()));
+            int start = tabDropdownScroll;
+            int end = Math.min(tabs.size(), start + visible);
+
+            int cy = y0 + TAB_DD_LIST_PAD;
+
+            for (int i = start; i < end; i++) {
+                TabEntry te = tabs.get(i);
+                boolean hovered = mouseX >= x0 && mouseX <= x1 && mouseY >= cy && mouseY < cy + TAB_DD_LIST_ROW_H;
+
+                if (hovered) {
+                    context.fill(x0 + 1, cy, x1 - 1, cy + TAB_DD_LIST_ROW_H, 0x33222222);
+                    hoveredTab = te;
+                }
+
+                boolean selected = Objects.equals(te.id, selectedTabId);
+                String prefix = selected ? "• " : "  ";
+
+                String full = prefix + te.name;
+                String shown = textRenderer.trimToWidth(full, tabListW - 10);
+
+                int ty = cy + (TAB_DD_LIST_ROW_H - textRenderer.fontHeight) / 2;
+                int color = selected ? 0xFFFFFFAA : 0xFFDDDDDD;
+                context.drawTextWithShadow(textRenderer, Text.literal(shown), x0 + 6, ty, color);
+
+                cy += TAB_DD_LIST_ROW_H;
+            }
+        }
+
+        // content area (starts below dropdown if opened)
         if (visibleSkills == null) return;
 
         ScrollContext sc = computeScrollContext(visibleSkills.size());
@@ -431,11 +543,8 @@ public class PassiveSkillsScreen extends Screen {
 
         int y = sc.contentY;
 
-        // for tooltip
         PassiveSkillsConfig.PassiveSkillDef hoveredDef = null;
-        int hoveredRowX0 = 0, hoveredRowY0 = 0, hoveredRowX1 = 0, hoveredRowY1 = 0;
 
-        // draw rows (visible range)
         for (int idx = start; idx < end; idx++) {
             PassiveSkillsConfig.PassiveSkillDef def = visibleSkills.get(idx);
             if (def == null) {
@@ -446,95 +555,71 @@ public class PassiveSkillsScreen extends Screen {
             int rowLeft = left + PAD_X;
             int rowRight = left + panelW - PAD_X;
 
-            // hover rect (excluding header)
             int rowX0 = rowLeft;
             int rowY0 = y;
-            int rowX1 = rowRight - (SCROLLBAR_W + SCROLLBAR_PAD); // avoid scrollbar area
+            int rowX1 = rowRight - (SCROLLBAR_W + SCROLLBAR_PAD + RIGHT_BTN_PAD);
             int rowY1 = y + ROW_H;
 
             boolean hovered = mouseX >= rowX0 && mouseX <= rowX1 && mouseY >= rowY0 && mouseY <= rowY1;
 
-            // subtle background on hover
             if (hovered) {
                 context.fill(rowX0, rowY0 + 1, rowX1, rowY1 - 1, 0x33111111);
                 hoveredDef = def;
-                hoveredRowX0 = rowX0; hoveredRowY0 = rowY0; hoveredRowX1 = rowX1; hoveredRowY1 = rowY1;
             }
 
-            // icon
+            context.fill(rowX0, rowY1 - 1, rowX1, rowY1, 0x22111111);
+
             int iconX = rowLeft;
             int iconY = y + (ROW_H - ICON_BOX) / 2;
 
             context.fill(iconX, iconY, iconX + ICON_BOX, iconY + ICON_BOX, 0xFF111111);
             ItemStack icon = iconStack(def);
-            if (!icon.isEmpty()) {
-                context.drawItem(icon, iconX + 2, iconY + 2);
-            }
+            if (!icon.isEmpty()) context.drawItem(icon, iconX + 2, iconY + 2);
 
-            // text area
-            int btnX = rowRight - BTN_W;
-            int textX = iconX + ICON_BOX + 10;
-            int textW = Math.max(120, btnX - textX - 10);
+            int btnX = rowRight - RIGHT_BTN_PAD - UPGRADE_BTN_W;
+
+            Integer cost = visibleCosts.get(def.id);
+            boolean canUp = Boolean.TRUE.equals(visibleCanUpgrade.get(def.id));
+
+            if (cost != null) {
+                String costStr = String.valueOf(cost);
+                int costW = textRenderer.getWidth(costStr);
+
+                int costX = btnX - 6 - costW;
+                int costY = y + (ROW_H - textRenderer.fontHeight) / 2;
+
+                int costColor = canUp ? 0xFFAAAAAA : 0xFF777777;
+                context.drawTextWithShadow(textRenderer, Text.literal(costStr), costX, costY, costColor);
+            }
 
             int current = ClientPassiveSkills.getLevel(def.id);
-
             String name = (def.name == null || def.name.isBlank()) ? def.id : def.name;
-            context.drawTextWithShadow(
-                    textRenderer,
-                    Text.literal(name + " [" + current + "/" + def.maxLevel + "]"),
-                    textX,
-                    y + 6,
-                    0xFFFFFFAA
-            );
 
-            String descStr = (def.description == null || def.description.isBlank()) ? "Описание не задано." : def.description;
-            List<OrderedText> lines = textRenderer.wrapLines(Text.literal(descStr), textW);
+            int safeRight = (cost != null)
+                    ? (btnX - 6 - textRenderer.getWidth(String.valueOf(cost)) - 10)
+                    : (btnX - 10);
 
-            // сколько строк реально помещается в ROW_H
-            int availableH = ROW_H - 24; // имя + отступы
-            int maxLines = Math.max(1, availableH / DESC_LINE_H);
-            int toDraw = Math.min(maxLines, lines.size());
+            int textX = iconX + ICON_BOX + 10;
+            int maxNameW = Math.max(10, safeRight - textX);
+            String shownName = textRenderer.trimToWidth(name + " [" + current + "/" + def.maxLevel + "]", maxNameW);
 
-            int descY = y + 20;
-            for (int j = 0; j < toDraw; j++) {
-                // если строк больше чем помещается — последнюю строку рисуем как "..."
-                if (j == toDraw - 1 && lines.size() > toDraw) {
-                    int dotsW = textRenderer.getWidth("...");
-                    int maxW = Math.max(0, textW - dotsW);
-
-                    // trimToWidth(String, int) возвращает String — безопасно
-                    String trimmed = textRenderer.trimToWidth(descStr, maxW);
-                    context.drawTextWithShadow(
-                            textRenderer,
-                            Text.literal(trimmed + "..."),
-                            textX,
-                            descY + j * DESC_LINE_H,
-                            0xFFCCCCCC
-                    );
-                    break;
-                } else {
-                    context.drawTextWithShadow(textRenderer, lines.get(j), textX, descY + j * DESC_LINE_H, 0xFFCCCCCC);
-                }
-            }
-
-
+            int nameY = y + (ROW_H - textRenderer.fontHeight) / 2;
+            context.drawTextWithShadow(textRenderer, Text.literal(shownName), textX, nameY, 0xFFFFFFAA);
 
             y += ROW_H;
         }
 
-        // draw scrollbar (track + thumb)
         if (sc.maxScroll > 0) {
             ScrollbarGeom g = computeScrollbarGeom(sc, visibleSkills.size());
-
-            // track
             context.fill(g.trackX, g.trackY, g.trackX + g.trackW, g.trackY + g.trackH, 0xFF2A2A2A);
-
-            // thumb
             int thumbColor = (isMouseOverScrollbar(mouseX, mouseY) || draggingScrollbar) ? 0xFFB0B0B0 : 0xFF8A8A8A;
             context.fill(g.thumbX, g.thumbY, g.thumbX + g.thumbW, g.thumbY + g.thumbH, thumbColor);
         }
 
-        // ---- Full description tooltip on hover (full description) ----
+        if (hoveredTab != null) {
+            context.drawTooltip(textRenderer, List.of(Text.literal(hoveredTab.name)), mouseX, mouseY);
+        }
+
         if (hoveredDef != null) {
             int tooltipW = Math.min(260, panelW - 40);
 
@@ -552,6 +637,18 @@ public class PassiveSkillsScreen extends Screen {
         }
     }
 
+    private boolean isMouseOverTabButton(int mouseX, int mouseY) {
+        return mouseX >= tabDdX && mouseX <= tabDdX + tabDdW && mouseY >= tabDdY && mouseY <= tabDdY + tabDdH;
+    }
+
+    private boolean isMouseOverTabList(int mouseX, int mouseY) {
+        int x0 = tabListX;
+        int y0 = tabListY;
+        int x1 = tabListX + tabListW;
+        int y1 = tabListY + tabListH;
+        return mouseX >= x0 && mouseX <= x1 && mouseY >= y0 && mouseY <= y1;
+    }
+
     private boolean isMouseOverScrollbar(int mouseX, int mouseY) {
         ScrollContext sc = computeScrollContext(visibleSkills == null ? 0 : visibleSkills.size());
         if (sc.maxScroll <= 0) return false;
@@ -567,8 +664,17 @@ public class PassiveSkillsScreen extends Screen {
         int left = (this.width - panelW) / 2;
         int top = (this.height - panelH) / 2;
 
-        int contentY = top + HEADER_H;
-        int contentH = panelH - HEADER_H - 10;
+        // базовый header: до кнопки dropdown
+        int headerH = TAB_DD_Y + TAB_DD_H + 10;
+
+        // если dropdown открыт — контент должен начинаться ниже списка
+        if (tabDropdownOpen) {
+            recomputeTabListBounds();
+            headerH = (TAB_DD_Y + TAB_DD_H) + 2 + tabListH + TAB_DD_GAP_BELOW;
+        }
+
+        int contentY = top + headerH;
+        int contentH = panelH - headerH - 10;
 
         int visibleRows = Math.max(1, contentH / ROW_H);
         int maxScroll = Math.max(0, totalRows - visibleRows);
@@ -581,8 +687,6 @@ public class PassiveSkillsScreen extends Screen {
     }
 
     private ScrollbarGeom computeScrollbarGeom(ScrollContext sc, int totalRows) {
-        int maxScroll = Math.max(1, sc.maxScroll);
-
         float proportion = (float) sc.visibleRows / (float) Math.max(sc.visibleRows, Math.max(1, totalRows));
         int thumbH = MathHelper.clamp(Math.round(sc.trackH * proportion), SCROLLBAR_MIN_THUMB_H, sc.trackH);
 
@@ -604,6 +708,8 @@ public class PassiveSkillsScreen extends Screen {
             int trackX, int trackY, int trackW, int trackH,
             int thumbX, int thumbY, int thumbW, int thumbH
     ) {}
+
+    private record TabEntry(String id, String name) {}
 
     private static ItemStack iconStack(PassiveSkillsConfig.PassiveSkillDef def) {
         if (def == null) return ItemStack.EMPTY;
@@ -636,8 +742,6 @@ public class PassiveSkillsScreen extends Screen {
     public boolean shouldPause() {
         return false;
     }
-
-    // ====== Optional: keep navigation sane ======
 
     @Nullable
     @Override
