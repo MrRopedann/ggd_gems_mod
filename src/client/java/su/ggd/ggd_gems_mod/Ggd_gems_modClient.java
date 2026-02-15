@@ -11,7 +11,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 
+import su.ggd.ggd_gems_mod.hud.ExperienceBarTextHud;
 import su.ggd.ggd_gems_mod.hud.MobHealthBarHud;
+import su.ggd.ggd_gems_mod.hud.XpGainPopupHud;
 import su.ggd.ggd_gems_mod.inventory.sort.client.InventorySortButtons;
 import su.ggd.ggd_gems_mod.inventory.sort.client.InventorySortClient;
 import su.ggd.ggd_gems_mod.net.GemsConfigSyncClient;
@@ -41,6 +43,8 @@ public class Ggd_gems_modClient implements ClientModInitializer {
         SocketedGemsTooltip.init();
         DamageIndicatorClient.init();
         MobHealthBarHud.init();
+        ExperienceBarTextHud.init();
+        XpGainPopupHud.init();
         DamagePopupTracker.init();
 
 
