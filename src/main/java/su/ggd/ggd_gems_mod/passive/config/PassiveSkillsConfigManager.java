@@ -115,6 +115,21 @@ public final class PassiveSkillsConfigManager {
                     1, 50, 0
             );
 
+            changed |= ensureSkillExists(cfg,
+                    "damage_absorption",
+                    "Поглощение урона",
+                    "Уменьшает входящий урон на 0.5% за уровень (на 10 уровне — 5%).",
+                    "minecraft:shield"
+            );
+
+            changed |= ensureSkillExists(cfg,
+                    "vampirism",
+                    "Вампиризм",
+                    "При нанесении урона: 0.5% шанс за уровень восстановить 1 сердечко (2 HP).",
+                    "minecraft:ghast_tear"
+            );
+
+
 
             // fill defaults for known skills if params empty
             changed |= fillDefaultsIfEmpty(def);
@@ -320,6 +335,16 @@ public final class PassiveSkillsConfigManager {
                 def.params.put("chancePerLevel", 0.015);
                 changed = true;
             }
+            case "damage_absorption" -> {
+                def.params.put("absorbPercentPerLevel", 0.5);
+                changed = true;
+            }
+            case "vampirism" -> {
+                def.params.put("chancePercentPerLevel", 0.5);
+                def.params.put("healAmount", 2.0); // 1 сердечко
+                changed = true;
+            }
+
 
             default -> {}
         }
@@ -387,6 +412,20 @@ public final class PassiveSkillsConfigManager {
                 "При крафте инструментов, оружия и брони даёт 1.5% шанс за уровень, что случайный материал из рецепта не израсходуется (на 10 ур. — 15%).",
                 "minecraft:crafting_table"
         ));
+        def.skills.add(skill(
+                "damage_absorption",
+                "Поглощение урона",
+                "Уменьшает входящий урон на 0.5% за уровень (на 10 уровне — 5%).",
+                "minecraft:shield"
+        ));
+
+        def.skills.add(skill(
+                "vampirism",
+                "Вампиризм",
+                "При нанесении урона: 0.5% шанс за уровень восстановить 1 сердечко (2 HP).",
+                "minecraft:ghast_tear"
+        ));
+
 
 
 
@@ -404,7 +443,7 @@ public final class PassiveSkillsConfigManager {
         def.tabs.add(tab("gathering", "Добыча", "minecraft:iron_pickaxe",
                 List.of("oak_roots", "lucky_miner", "light_hand")));
         def.tabs.add(tab("combat", "Бой", "minecraft:iron_sword",
-                List.of("melee_damage", "ranged_damage", "bow_trajectory")));
+                List.of("melee_damage", "ranged_damage", "bow_trajectory", "damage_absorption", "vampirism")));
         def.tabs.add(tab("survival", "Выживание", "minecraft:golden_apple",
                 List.of("bonus_hp", "iron_stomach", "beast_instinct", "literate_creator")));
         def.tabs.add(tab("movement", "Передвижение", "minecraft:leather_boots",

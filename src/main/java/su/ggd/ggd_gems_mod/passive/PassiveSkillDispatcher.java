@@ -282,4 +282,38 @@ public final class PassiveSkillDispatcher {
         if (s == null || s.isBlank()) return null;
         return s.toLowerCase(Locale.ROOT);
     }
+
+    public static float modifyIncomingDamage(ServerWorld world, ServerPlayerEntity player,
+                                             net.minecraft.entity.damage.DamageSource source, float amount) {
+        if (world == null || player == null || source == null) return amount;
+        if (amount <= 0f) return amount;
+
+        PassiveSkillsConfig cfg = PassiveSkillsConfigManager.get();
+        if (cfg == null || cfg.skills == null) return amount;
+
+        PassiveSkillsState st = PassiveSkillsState.get(world);
+
+        float out = amount;
+
+        for (PassiveSkillsConfig.PassiveSkillDef def : cfg.skills) {
+            if (def == null) continue;
+
+            String id = safeLower(def.id);
+            if (id == null) continue;
+
+            int level = st.getLevel(player.getUuid(), id);
+            if (level <= 0) continue;
+
+            PassiveSkillEffect eff = PassiveSkillEffects.get(resolveEffectId(def));
+            if (eff instanceof su.ggd.ggd_gems_mod.passive.api.ModifyIncomingDamage hook) {
+                try {
+                    out = hook.modifyIncomingDamage(world, player, source, out, def, level);
+                    if (out < 0f) out = 0f;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return out;
+    }
+
 }

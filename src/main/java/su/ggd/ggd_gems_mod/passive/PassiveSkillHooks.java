@@ -5,7 +5,11 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -15,6 +19,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import org.jetbrains.annotations.Nullable;
 import su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfig;
 import su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfigManager;
 import su.ggd.ggd_gems_mod.passive.effects.BonusHpEffect;
@@ -37,11 +42,10 @@ public final class PassiveSkillHooks {
     private record PendingToolDamage(Hand hand, int prevDamage, int delayTicks) {}
     private record EatTrack(Hand hand, Item item, int startCount, long endGameTime) {}
 
+    // Нужен для поглощения урона: мы отменяем ванильный урон и наносим свой -> защита от рекурсии
+    private static final ThreadLocal<Boolean> DAMAGE_OVERRIDE = ThreadLocal.withInitial(() -> false);
 
     // ===== iron_stomach (food handling) =====
-// Поддерживаем:
-// - гнилая плоть + сырая курятина: без голода/отравления, но мало насыщают
-// - сырое мясо (и рыба): можно есть без голода, без штрафов
     private static final Item[] IRON_STOMACH_FOODS = new Item[] {
             Items.ROTTEN_FLESH,
             Items.CHICKEN,
@@ -53,22 +57,64 @@ public final class PassiveSkillHooks {
             Items.SALMON
     };
 
-
     public static void init() {
-        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-            if (!(entity instanceof net.minecraft.entity.LivingEntity victim)) return true;
 
-            net.minecraft.entity.Entity attacker = source.getAttacker();
-            if (!(attacker instanceof net.minecraft.server.network.ServerPlayerEntity sp)) return true;
-            if (!(sp.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld sw)) return true;
+        // ==========================================================
+        // A) УРОН ПО ИГРОКУ: поглощение урона + onPlayerDamaged (skin_mutation и т.п.)
+        // ==========================================================
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof ServerPlayerEntity sp)) return true;
+            if (!(sp.getEntityWorld() instanceof ServerWorld sw)) return true;
+
+            if (Boolean.TRUE.equals(DAMAGE_OVERRIDE.get())) return true;
+
+            // ВАЖНО: это требует, чтобы у тебя был PassiveSkillDispatcher.modifyIncomingDamage(...)
+            float modified = PassiveSkillDispatcher.modifyIncomingDamage(sw, sp, source, amount);
+
+            // если ничего не изменили — просто хук + пропускаем ваниллу
+            if (modified == amount) {
+                PassiveSkillDispatcher.onPlayerDamaged(sw, sp, source, amount);
+                return true;
+            }
+
+            // отменяем ванильный урон и наносим свой (уменьшенный)
+            DAMAGE_OVERRIDE.set(true);
+            try {
+                if (modified > 0f) {
+                    sp.damage(sw, source, modified);
+                }
+            } finally {
+                DAMAGE_OVERRIDE.set(false);
+            }
+
+            // чтобы срабатывали эффекты "после получения урона" на фактическом значении
+            if (modified > 0f) {
+                PassiveSkillDispatcher.onPlayerDamaged(sw, sp, source, modified);
+            }
+
+            return false;
+        });
+
+        // ==========================================================
+        // B) УРОН ПО МOB'У ОТ ИГРОКА: onEntityDamagedByPlayer (вампиризм и т.п.)
+        // ==========================================================
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof LivingEntity victim)) return true;
+
+            // не трогаем игрока здесь (чтобы не конфликтовать с блоком A)
+            if (victim instanceof ServerPlayerEntity) return true;
+
+            ServerPlayerEntity sp = resolveAttackingPlayer(source);
+            if (sp == null) return true;
+            if (!(sp.getEntityWorld() instanceof ServerWorld sw)) return true;
 
             PassiveSkillDispatcher.onEntityDamagedByPlayer(sw, sp, victim, source, amount);
             return true;
         });
 
-
-        // 1) block break hooks
+        // ==========================================================
         // 0) iron_stomach: разрешаем есть даже на полном голоде и убираем штрафы
+        // ==========================================================
         UseItemCallback.EVENT.register((player, world, hand) -> {
             ItemStack stack = player.getStackInHand(hand);
             if (stack.isEmpty()) return ActionResult.PASS;
@@ -76,14 +122,10 @@ public final class PassiveSkillHooks {
             Item item = stack.getItem();
             if (!isIronStomachFood(item)) return ActionResult.PASS;
 
-            // CLIENT: запускаем использование, чтобы появилась анимация еды
-            if (world.isClient()) {
-                // НИЧЕГО не форсим на клиенте — иначе будет анимация без серверного расхода
-                return ActionResult.PASS;
-            }
+            // CLIENT: не форсим
+            if (world.isClient()) return ActionResult.PASS;
 
-
-            // SERVER: тоже форсим использование (иначе при полном голоде ванилла не даст есть)
+            // SERVER
             if (!(player instanceof ServerPlayerEntity sp)) return ActionResult.PASS;
             if (!(world instanceof ServerWorld sw)) return ActionResult.PASS;
 
@@ -103,29 +145,20 @@ public final class PassiveSkillHooks {
             }
 
             // Иначе стартуем новый цикл еды
-            int useTicks = 32; // стандартная длительность еды
+            int useTicks = 32;
             long endTime = sw.getTime() + useTicks;
 
             IRON_STOMACH_EAT.put(sp.getUuid(), new EatTrack(hand, item, stack.getCount(), endTime));
 
             sp.setCurrentHand(hand);
             return ActionResult.CONSUME;
-
-
         });
-
-        // 1.3) player damaged hooks (skin_mutation and similar)
-        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-            if (!(entity instanceof ServerPlayerEntity sp)) return true;
-            if (!(sp.getEntityWorld() instanceof ServerWorld sw)) return true;
-
-            PassiveSkillDispatcher.onPlayerDamaged(sw, sp, source, amount);
-            return true;
-        });
-
 
         ServerTickEvents.END_SERVER_TICK.register(PassiveSkillHooks::ironStomachTick);
 
+        // ==========================================================
+        // 1) block break hooks
+        // ==========================================================
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (world.isClient()) return true;
             if (!(player instanceof ServerPlayerEntity sp)) return true;
@@ -151,14 +184,15 @@ public final class PassiveSkillHooks {
             Integer before = BREAK_DAMAGE_BEFORE.remove(sp.getUuid());
             ItemStack tool = sp.getMainHandStack();
             if (before != null && isSupportedTool(tool)) {
-                // delay 1 тик, рука MAIN (main hand)
                 PENDING_TOOL_DAMAGE.put(sp.getUuid(), new PendingToolDamage(Hand.MAIN_HAND, before, 1));
             }
 
             PassiveSkillDispatcher.onBlockBreakAfter(sw, sp, pos, state, blockEntity);
         });
 
+        // ==========================================================
         // 1.2) use-on-block (мотыга/топор/лопата и т.п.)
+        // ==========================================================
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
             if (world.isClient()) return ActionResult.PASS;
             if (!(player instanceof ServerPlayerEntity sp)) return ActionResult.PASS;
@@ -167,15 +201,15 @@ public final class PassiveSkillHooks {
             ItemStack tool = sp.getStackInHand(hand);
             if (!isSupportedTool(tool)) return ActionResult.PASS;
 
-            // IMPORTANT: предохранитель от поломки на последней прочности (light_hand)
             PassiveSkillDispatcher.onToolUseBefore(sw, sp, tool);
 
-            // Многие действия уменьшают прочность ПОСЛЕ callback -> проверяем на следующем тике
             PENDING_TOOL_DAMAGE.put(sp.getUuid(), new PendingToolDamage(hand, tool.getDamage(), 1));
             return ActionResult.PASS;
         });
 
+        // ==========================================================
         // 2) server tick hooks (регистрируем один раз)
+        // ==========================================================
         ServerTickEvents.END_SERVER_TICK.register(PassiveSkillHooks::onServerTick);
     }
 
@@ -205,12 +239,10 @@ public final class PassiveSkillHooks {
                 if (!isSupportedTool(tool)) continue;
 
                 int diff = tool.getDamage() - p.prevDamage;
-                System.out.println("[light_hand] diff=" + diff + " tool=" + tool.getItem() + " prev=" + p.prevDamage + " now=" + tool.getDamage());
 
                 if (diff > 0) {
                     PassiveSkillDispatcher.onToolDamaged(sp.getEntityWorld(), sp, tool, diff);
                 }
-
             }
         }
 
@@ -276,16 +308,6 @@ public final class PassiveSkillHooks {
                 || stack.isIn(ItemTags.HOES);
     }
 
-    private static boolean hasSkill(ServerWorld world, ServerPlayerEntity player, String skillId) {
-        if (world == null || player == null) return false;
-
-        PassiveSkillsState st = PassiveSkillsState.get(world);
-        if (st == null) return false;
-
-        return st.getLevel(player.getUuid(), skillId) > 0;
-    }
-
-
     private static boolean isIronStomachFood(Item item) {
         if (item == null) return false;
         for (Item it : IRON_STOMACH_FOODS) if (it == item) return true;
@@ -307,7 +329,6 @@ public final class PassiveSkillHooks {
                 continue;
             }
 
-            // если уже как-то изменилось — не трогаем
             if (handStack.getCount() != t.startCount()) {
                 IRON_STOMACH_EAT.remove(sp.getUuid());
                 continue;
@@ -327,18 +348,12 @@ public final class PassiveSkillHooks {
         return st.getLevel(player.getUuid(), skillId);
     }
 
-
-    private static boolean isPenaltyFood(Item item) {
-        return item == Items.ROTTEN_FLESH || item == Items.CHICKEN;
-    }
-
     private static void consumeIronStomachFood(ServerPlayerEntity player, ServerWorld world, Hand hand) {
         ItemStack stack = player.getStackInHand(hand);
         if (stack.isEmpty()) return;
 
         Item item = stack.getItem();
 
-        // "мало насыщает" для rotten flesh / raw chicken
         int hunger;
         float saturation;
 
@@ -352,12 +367,10 @@ public final class PassiveSkillHooks {
             hunger = 2;
             saturation = 0.3f;
         } else {
-            // BEEF / PORKCHOP / RABBIT
             hunger = 3;
             saturation = 0.3f;
         }
 
-        // списываем 1 предмет
         if (!player.isCreative()) {
             stack.decrement(1);
             if (stack.isEmpty()) {
@@ -365,15 +378,20 @@ public final class PassiveSkillHooks {
             }
         }
 
-        // добавляем еду (даже при полном голоде)
         player.getHungerManager().add(hunger, saturation);
-
-        // гарантированно чистим (на всякий)
         player.removeStatusEffect(StatusEffects.HUNGER);
         player.removeStatusEffect(StatusEffects.POISON);
     }
 
+    private static @Nullable ServerPlayerEntity resolveAttackingPlayer(DamageSource source) {
+        Entity attacker = source.getAttacker();
+        if (attacker instanceof ServerPlayerEntity sp) return sp;
 
-
-
+        Entity direct = source.getSource();
+        if (direct instanceof ProjectileEntity proj) {
+            Entity owner = proj.getOwner();
+            if (owner instanceof ServerPlayerEntity sp2) return sp2;
+        }
+        return null;
+    }
 }

@@ -63,15 +63,27 @@ public class Ggd_gems_mod implements ModInitializer {
 
         DayHostileSpawner.init();
 
-        PassiveSkillEffects.register(new OakRootsEffect());
-        PassiveSkillEffects.register(new LuckyMinerEffect());
-        PassiveSkillEffects.register(new DiligentStudentEffect());
-        PassiveSkillEffects.register(new MeleeDamageEffect());
-        PassiveSkillEffects.register(new RangedDamageEffect());
-        PassiveSkillEffects.register(new MoveSpeedEffect());
+        PassiveSkillEffects.register(new BeastInstinctEffect());
         PassiveSkillEffects.register(new BonusHpEffect());
         PassiveSkillEffects.register(new BowTrajectoryEffect());
+        PassiveSkillEffects.register(new DiligentStudentEffect());
+        PassiveSkillEffects.register(new IronStomachEffect());
         PassiveSkillEffects.register(new LightHandEffect());
+        PassiveSkillEffects.register(new LiterateCreatorEffect());
+        PassiveSkillEffects.register(new LuckyMinerEffect());
+        PassiveSkillEffects.register(new MeleeDamageEffect());
+        PassiveSkillEffects.register(new MoveSpeedEffect());
+        PassiveSkillEffects.register(new OakRootsEffect());
+        PassiveSkillEffects.register(new RangedDamageEffect());
+        PassiveSkillEffects.register(new DiligentStudentEffect());
+        PassiveSkillEffects.register(new SkinMutationEffect());
+        PassiveSkillEffects.register(new DamageAbsorptionEffect());
+        PassiveSkillEffects.register(new VampirismEffect());
+
+
+
+
+
 
         // 1) Реестры/компоненты
         ModDataComponents.initialize();
