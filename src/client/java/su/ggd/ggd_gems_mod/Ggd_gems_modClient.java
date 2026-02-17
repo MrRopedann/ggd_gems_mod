@@ -31,6 +31,13 @@ import su.ggd.ggd_gems_mod.passive.PassiveSkillsScreen;
 import su.ggd.ggd_gems_mod.net.PassiveSkillsSyncClient;
 import java.util.List;
 import java.util.Locale;
+import su.ggd.ggd_gems_mod.net.QuestsSyncClient;
+import su.ggd.ggd_gems_mod.net.QuestStateClientHandlers;
+import su.ggd.ggd_gems_mod.quests.client.hud.QuestTrackerHud;
+import su.ggd.ggd_gems_mod.quests.client.ui.QuestJournalClient;
+
+
+
 
 public class Ggd_gems_modClient implements ClientModInitializer {
 
@@ -46,6 +53,8 @@ public class Ggd_gems_modClient implements ClientModInitializer {
         ExperienceBarTextHud.init();
         XpGainPopupHud.init();
         DamagePopupTracker.init();
+        QuestTrackerHud.init();
+
 
 
         // Синк конфига самоцветов
@@ -54,6 +63,12 @@ public class Ggd_gems_modClient implements ClientModInitializer {
 
         // Синк пассивок (конфиг + уровни игрока)
         PassiveSkillsSyncClient.init();
+        // Синк квестов (defs)
+        QuestsSyncClient.init();
+        QuestStateClientHandlers.init();
+        QuestJournalClient.init();
+
+
 
         PassiveSkillEffects.register(new OakRootsEffect());
         PassiveSkillEffects.register(new LuckyMinerEffect());

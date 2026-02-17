@@ -25,6 +25,18 @@ import su.ggd.ggd_gems_mod.passive.effects.*;
 import su.ggd.ggd_gems_mod.registry.ModDataComponents;
 import su.ggd.ggd_gems_mod.registry.ModItemGroups;
 import su.ggd.ggd_gems_mod.registry.ModItems;
+import su.ggd.ggd_gems_mod.quests.config.QuestsConfigManager;
+import su.ggd.ggd_gems_mod.quests.net.QuestNet;
+import su.ggd.ggd_gems_mod.quests.net.QuestsSyncServer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import su.ggd.ggd_gems_mod.quests.net.QuestStateNet;
+import su.ggd.ggd_gems_mod.quests.net.QuestStateServerHandlers;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import su.ggd.ggd_gems_mod.quests.command.QuestsCommands;
+import su.ggd.ggd_gems_mod.quests.QuestHooks;
+import su.ggd.ggd_gems_mod.quests.TalkHook;
+
+
 
 import su.ggd.ggd_gems_mod.passive.PassiveSkillHooks;
 import su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfigManager;
@@ -57,6 +69,20 @@ public class Ggd_gems_mod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(InventorySortNet.SORT_REQUEST_ID, InventorySortNet.SORT_REQUEST_CODEC);
 
         PayloadTypeRegistry.playS2C().register(MobLevelNet.MOB_LEVEL_ID, MobLevelNet.MOB_LEVEL_CODEC);
+
+        // Quests net (Stage 1: defs sync)
+        PayloadTypeRegistry.playS2C().register(QuestNet.SYNC_QUEST_DEFS_ID, QuestNet.SYNC_QUEST_DEFS_CODEC);
+        // Quests state net (Stage 2)
+        PayloadTypeRegistry.playS2C().register(QuestStateNet.SYNC_PLAYER_STATE_ID, QuestStateNet.SYNC_PLAYER_STATE_CODEC);
+        PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_START_ID, QuestStateNet.C2S_START_CODEC);
+        PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_ABANDON_ID, QuestStateNet.C2S_ABANDON_CODEC);
+        PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_TRACK_ID, QuestStateNet.C2S_TRACK_CODEC);
+
+        // C2S handlers
+        QuestStateServerHandlers.init();
+
+        QuestHooks.init();
+        TalkHook.init();
 
 
         MobRulesConfigManager.get();
@@ -93,6 +119,9 @@ public class Ggd_gems_mod implements ModInitializer {
         NpcTradersConfigManager.loadOrCreateDefault();
         EconomyConfigManager.loadOrCreateDefault();
         MobRulesConfigManager.get();
+        // Квесты (сервер-истина)
+        QuestsConfigManager.loadOrCreateDefault();
+
 
         // Пассивки
         PassiveSkillsConfigManager.loadOrCreateDefault();
@@ -100,6 +129,9 @@ public class Ggd_gems_mod implements ModInitializer {
         // 3) Синк на клиент при входе
         GemsConfigSyncServer.init();
         PassiveSkillsSyncServer.init();
+        // Quests defs sync
+        QuestsSyncServer.init();
+
 
         // Inventory sort receiver
         InventorySortServer.init();
@@ -127,5 +159,9 @@ public class Ggd_gems_mod implements ModInitializer {
             StatsCommand.register(dispatcher);
             WeaponStatsCommand.register(dispatcher);
         });
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+            QuestsCommands.register(dispatcher);
+        });
+
     }
 }
