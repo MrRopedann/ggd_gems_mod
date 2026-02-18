@@ -11,12 +11,15 @@ import net.minecraft.util.math.MathHelper;
 
 public final class ExperienceBarTextHud implements HudRenderCallback {
 
-    private static final int XP_BAR_WIDTH = 182;
+    private static boolean DONE = false;
 
-    // 0.85 - почти ваниль, 0.75 - аккуратно, 0.65 - компактно
+    private static final int XP_BAR_WIDTH = 182;
     private static final float TEXT_SCALE = 0.8f;
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         HudRenderCallback.EVENT.register(new ExperienceBarTextHud());
     }
 
@@ -46,14 +49,12 @@ public final class ExperienceBarTextHud implements HudRenderCallback {
         int barX = (screenW - XP_BAR_WIDTH) / 2;
         int barY = screenH - 32 + 3;
 
-        // На одной высоте с уровнем, но по краям XP-бара
         int textY = barY;
 
         int leftX = barX + 3;
         int rightW = tr.getWidth(rightText);
         int rightX = barX + XP_BAR_WIDTH - rightW - 3;
 
-        // ---- Масштабирование (Matrix3x2fStack) ----
         ctx.getMatrices().pushMatrix();
         ctx.getMatrices().scale(TEXT_SCALE, TEXT_SCALE);
 
@@ -61,25 +62,20 @@ public final class ExperienceBarTextHud implements HudRenderCallback {
         int sxRight = (int) (rightX / TEXT_SCALE);
         int sy = (int) (textY / TEXT_SCALE);
 
-        int outlineColor = 0xFF000000;       // чёрная обводка
-        int textColor = 0xFFFFB300;          // жёлто-оранжевый
+        int outlineColor = 0xFF000000;
+        int textColor = 0xFFFFB300;
 
-        // ----- LEFT -----
         ctx.drawText(tr, leftText, sxLeft - 1, sy, outlineColor, false);
         ctx.drawText(tr, leftText, sxLeft + 1, sy, outlineColor, false);
         ctx.drawText(tr, leftText, sxLeft, sy - 1, outlineColor, false);
         ctx.drawText(tr, leftText, sxLeft, sy + 1, outlineColor, false);
-
         ctx.drawText(tr, leftText, sxLeft, sy, textColor, false);
 
-        // ----- RIGHT -----
         ctx.drawText(tr, rightText, sxRight - 1, sy, outlineColor, false);
         ctx.drawText(tr, rightText, sxRight + 1, sy, outlineColor, false);
         ctx.drawText(tr, rightText, sxRight, sy - 1, outlineColor, false);
         ctx.drawText(tr, rightText, sxRight, sy + 1, outlineColor, false);
-
         ctx.drawText(tr, rightText, sxRight, sy, textColor, false);
-
 
         ctx.getMatrices().popMatrix();
     }

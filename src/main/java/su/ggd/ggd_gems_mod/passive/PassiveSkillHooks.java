@@ -35,6 +35,8 @@ import java.util.UUID;
 public final class PassiveSkillHooks {
     private PassiveSkillHooks() {}
 
+    private static boolean DONE = false;
+
     private static final Map<UUID, Integer> BREAK_DAMAGE_BEFORE = new HashMap<>();
     private static final Map<UUID, PendingToolDamage> PENDING_TOOL_DAMAGE = new HashMap<>();
     private static final Map<UUID, EatTrack> IRON_STOMACH_EAT = new HashMap<>();
@@ -58,6 +60,8 @@ public final class PassiveSkillHooks {
     };
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
 
         // ==========================================================
         // A) УРОН ПО ИГРОКУ: поглощение урона + onPlayerDamaged (skin_mutation и т.п.)

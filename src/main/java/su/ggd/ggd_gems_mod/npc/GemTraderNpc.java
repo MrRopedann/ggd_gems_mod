@@ -5,6 +5,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
@@ -24,17 +25,16 @@ import net.minecraft.village.TradedItem;
 import net.minecraft.village.VillagerData;
 import net.minecraft.village.VillagerProfession;
 import net.minecraft.world.Heightmap;
-
-import net.minecraft.entity.projectile.ProjectileUtil;
-
-import su.ggd.ggd_gems_mod.config.GemsConfig;
-import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfig;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
+import su.ggd.ggd_gems_mod.gem.GemRegistry;
 import su.ggd.ggd_gems_mod.gem.GemStacks;
 import su.ggd.ggd_gems_mod.registry.ModItems;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
 import java.util.function.Predicate;
 
 public final class GemTraderNpc {
@@ -83,7 +83,6 @@ public final class GemTraderNpc {
         entity.setCustomName(Text.literal(def.name));
         entity.setCustomNameVisible(def.nameVisible);
 
-
         if (entity instanceof MobEntity mob) {
             mob.setAiDisabled(def.noAi);
             mob.setPersistent();
@@ -113,7 +112,6 @@ public final class GemTraderNpc {
                 .expand(1.0);
 
         Predicate<Entity> filter = e -> e != null && e.isAlive() && isOurTrader(e);
-
 
         EntityHitResult hit = ProjectileUtil.raycast(
                 player, start, end, box, filter, distance * distance
@@ -161,10 +159,8 @@ public final class GemTraderNpc {
     }
 
     private static void applyTradesToMerchant(TradeOfferList offers, NpcTradersConfig.TraderDef def) {
-        GemsConfig gemsCfg = GemsConfigManager.get();
-        List<String> allGemTypes = new ArrayList<>();
-        if (gemsCfg != null && gemsCfg.byType != null) allGemTypes.addAll(gemsCfg.byType.keySet());
-
+        var all = GemRegistry.all();
+        List<String> allGemTypes = new ArrayList<>(all.keySet());
         Random rnd = new Random();
 
         if (def.trades == null) return;
@@ -184,7 +180,7 @@ public final class GemTraderNpc {
                 String type = (t.sellGem.type == null ? "" : t.sellGem.type.trim().toLowerCase(Locale.ROOT));
                 if (type.isBlank()) {
                     type = allGemTypes.get(rnd.nextInt(allGemTypes.size()));
-                } else if (gemsCfg == null || gemsCfg.byType == null || !gemsCfg.byType.containsKey(type)) {
+                } else if (!all.containsKey(type)) {
                     continue; // неизвестный gem type
                 }
 
@@ -239,6 +235,4 @@ public final class GemTraderNpc {
         }
         return false;
     }
-
-
 }

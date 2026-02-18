@@ -15,6 +15,8 @@ import java.util.List;
 
 public final class XpGainPopupHud implements HudRenderCallback {
 
+    private static boolean DONE = false;
+
     private static final int XP_BAR_WIDTH = 182;
 
     // Размер/стиль как у твоих чисел (можешь подстроить)
@@ -28,6 +30,9 @@ public final class XpGainPopupHud implements HudRenderCallback {
     private static final List<Popup> POPUPS = new ArrayList<>();
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         HudRenderCallback.EVENT.register(new XpGainPopupHud());
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -115,6 +120,7 @@ public final class XpGainPopupHud implements HudRenderCallback {
         ctx.drawText(tr, text, x + 1, y, OUTLINE, false);
         ctx.drawText(tr, text, x, y - 1, OUTLINE, false);
         ctx.drawText(tr, text, x, y + 1, OUTLINE, false);
+
         ctx.drawText(tr, text, x, y, color, false);
     }
 

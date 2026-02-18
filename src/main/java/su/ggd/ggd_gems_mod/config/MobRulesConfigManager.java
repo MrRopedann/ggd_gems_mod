@@ -20,6 +20,12 @@ public final class MobRulesConfigManager {
         return CURRENT;
     }
 
+    /** Для ConfigRegistry / reload команд. */
+    public static void loadOrCreateDefault() {
+        CURRENT = null;
+        get();
+    }
+
     private static MobRulesConfig loadOrCreate() {
         try {
             Files.createDirectories(PATH.getParent());

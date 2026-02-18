@@ -14,20 +14,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import su.ggd.ggd_gems_mod.config.EconomyConfig;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
-import su.ggd.ggd_gems_mod.config.GemsConfig;
-import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.currency.CurrencyItems;
 import su.ggd.ggd_gems_mod.currency.CurrencyPay;
 import su.ggd.ggd_gems_mod.gem.GemAttributeApplier;
 import su.ggd.ggd_gems_mod.gem.GemData;
+import su.ggd.ggd_gems_mod.gem.GemRegistry;
 import su.ggd.ggd_gems_mod.gem.GemStacks;
-import su.ggd.ggd_gems_mod.registry.ModDataComponents;
 import su.ggd.ggd_gems_mod.registry.ModItems;
-import su.ggd.ggd_gems_mod.socket.SocketedGem;
-import su.ggd.ggd_gems_mod.targeting.GemTargeting;
+import su.ggd.ggd_gems_mod.socket.GemSocketing;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 @Mixin(AnvilScreenHandler.class)
@@ -62,12 +57,6 @@ public abstract class AnvilScreenHandlerMixin {
         int op = detectOperation(left, right);
         if (op == OP_NONE) return;
 
-        // gems config (types/targets/maxLevel)
-        GemsConfig gemsCfg = GemsConfigManager.get();
-        if (gemsCfg == null) return;
-        if (gemsCfg.byType == null || gemsCfg.byType.isEmpty()) gemsCfg.rebuildIndex();
-
-        // economy config (anvil costs)
         EconomyConfig eco = EconomyConfigManager.get();
         if (eco == null || eco.anvil == null) return;
 
@@ -78,46 +67,18 @@ public abstract class AnvilScreenHandlerMixin {
             if (type == null || type.isBlank()) return;
 
             String key = type.trim().toLowerCase(Locale.ROOT);
-            GemsConfig.GemDef def = gemsCfg.byType.get(key);
-            if (def == null) return;
 
-            // проверка targets
-            if (!GemTargeting.canInsertGemInto(left, def)) return;
+            // targets check + runtime lookup через GemRegistry внутри GemSocketing
+            if (!GemSocketing.canInsert(left, key)) return;
 
             ItemStack out = left.copy();
 
-            List<SocketedGem> gems = out.get(ModDataComponents.SOCKETED_GEMS);
-            if (gems == null) gems = new ArrayList<>();
-            else gems = new ArrayList<>(gems);
+            // централизованная логика вставки/апгрейда по правилам уровней/слотов
+            if (!GemSocketing.addGem(out, key, lvl)) return;
 
-            // 1) если уже есть самоцвет этого типа — заменяем уровень (только если новый выше)
-            int idxSameType = -1;
-            for (int i = 0; i < gems.size(); i++) {
-                SocketedGem g = gems.get(i);
-                if (g == null) continue;
-                if (g.type() != null && g.type().equalsIgnoreCase(key)) {
-                    idxSameType = i;
-                    break;
-                }
-            }
-
-            if (idxSameType >= 0) {
-                SocketedGem existing = gems.get(idxSameType);
-                int existingLvl = existing == null ? 0 : existing.level();
-
-                // если новый уровень НЕ выше — запрещаем (не даём результат)
-                if (lvl <= existingLvl) return;
-
-                // заменяем
-                gems.set(idxSameType, new SocketedGem(key, lvl));
-            } else {
-                // 2) иначе — добавляем в свободный слот (макс 2)
-                if (gems.size() >= 2) return;
-                gems.add(new SocketedGem(key, lvl));
-            }
-
-            out.set(ModDataComponents.SOCKETED_GEMS, gems);
+            // текущий аплаер атрибутов (оставляем)
             GemAttributeApplier.rebuild(out);
+
             self.getSlot(SLOT_RESULT).setStack(out);
 
             int cost = computeCost(eco.anvil.insertBase, eco.anvil.insertPerLevelPct, lvl);
@@ -139,12 +100,18 @@ public abstract class AnvilScreenHandlerMixin {
             int l1 = Math.max(1, GemData.getLevel(left));
             int l2 = Math.max(1, GemData.getLevel(right));
 
-            int max = (gemsCfg.maxLevel > 0) ? gemsCfg.maxLevel : 10;
+            String key = t1.trim().toLowerCase(Locale.ROOT);
+
+            var def = GemRegistry.get(key);
+            int max = (def != null && def.maxLevel > 0) ? def.maxLevel : 10;
+
             int outLevel = (l1 == l2) ? (l1 + 1) : Math.max(l1, l2);
             if (outLevel > max) outLevel = max;
 
             ItemStack out = new ItemStack(ModItems.GEM);
-            GemStacks.applyGemDataFromConfig(out, t1.trim().toLowerCase(Locale.ROOT), outLevel);
+
+            // оставляем текущую функцию, чтобы она ставила компоненты/имя по конфигу
+            GemStacks.applyGemDataFromConfig(out, key, outLevel);
 
             self.getSlot(SLOT_RESULT).setStack(out);
 

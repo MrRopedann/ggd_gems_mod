@@ -1,7 +1,6 @@
 package su.ggd.ggd_gems_mod.inventory.sort.client;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -18,18 +17,6 @@ public final class InventorySortClient {
     private static InventorySortType current = InventorySortType.NAME;
 
     public static void init() {
-        SORT_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.ggd_gems_mod.sort_inventory",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_R,
-                KeyBinding.Category.INVENTORY   // ✅ ВАЖНО
-        ));
-
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (SORT_KEY.wasPressed()) {
-                sendSort(client);
-            }
-        });
     }
 
 

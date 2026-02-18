@@ -11,10 +11,15 @@ import java.util.Map;
 public final class DamagePopupTracker {
     private DamagePopupTracker() {}
 
+    private static boolean DONE = false;
+
     private static final double TRACK_DISTANCE = 24.0;
     private static final Map<Integer, Float> lastHp = new HashMap<>();
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> tick(client));
     }
 

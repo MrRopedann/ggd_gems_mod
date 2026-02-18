@@ -26,34 +26,27 @@ import su.ggd.ggd_gems_mod.config.MobRulesConfigManager;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/**
- * Дополнительный спавн враждебных мобов ДНЁМ.
- *
- * Условия:
- * - мир не Peaceful
- * - сейчас день
- * - (опционально) проверка света: либо игнорируем, либо требуем light <= max
- * - твёрдая полная поверхность (не листва/стекло/плиты/ступеньки/лёд/ковры)
- * - 2 блока воздуха над поверхностью
- * - расстояние до ближайшего игрока 24..128
- *
- * Важно: это не вмешивается в ванильный спавн, а делает дополнительные попытки.
- */
 public final class DayHostileSpawner {
     private DayHostileSpawner() {}
 
     private static final int MIN_DIST = 24;
     private static final int MAX_DIST = 128;
 
-    // тик-таймер на мир, чтобы не спавнить каждый тик
     private static final Map<RegistryKey<World>, Integer> WORLD_TICKS = new WeakHashMap<>();
 
+    private static boolean DONE = false;
+
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         ServerTickEvents.END_WORLD_TICK.register(DayHostileSpawner::onWorldTick);
     }
 
     private static void onWorldTick(ServerWorld world) {
         MobRulesConfig cfg = MobRulesConfigManager.get();
+        if (cfg == null) return;
+
         if (!cfg.hostilesSpawnDaytime) return;
         if (world.getDifficulty() == Difficulty.PEACEFUL) return;
         if (!world.isDay()) return;
@@ -69,7 +62,6 @@ public final class DayHostileSpawner {
         if (current >= cap) return;
 
         int attempts = MathHelper.clamp(cfg.daytimeSpawnAttempts, 1, 64);
-
         for (int i = 0; i < attempts; i++) {
             if (current >= cap) break;
             if (trySpawnOnce(world, cfg)) current++;
@@ -79,7 +71,7 @@ public final class DayHostileSpawner {
     private static int computeMonsterCap(MobRulesConfig cfg) {
         if (cfg.monsterCapOverride > 0) return cfg.monsterCapOverride;
 
-        int base = 70; // ванильный общий cap MONSTER примерно такой
+        int base = 70;
         double mul = cfg.monsterCapMultiplier;
         if (!Double.isFinite(mul) || mul <= 0.0) mul = 1.0;
         return Math.max(1, (int) Math.round(base * mul));
@@ -97,31 +89,25 @@ public final class DayHostileSpawner {
         ServerPlayerEntity anchor = world.getPlayers().get(world.getRandom().nextInt(world.getPlayers().size()));
         Vec3d a = new Vec3d(anchor.getX(), anchor.getY(), anchor.getZ());
 
-        // случайная точка в кольце 24..128
         double angle = world.getRandom().nextDouble() * (Math.PI * 2.0);
         double dist = MIN_DIST + world.getRandom().nextDouble() * (MAX_DIST - MIN_DIST);
         int x = MathHelper.floor(a.x + Math.cos(angle) * dist);
         int z = MathHelper.floor(a.z + Math.sin(angle) * dist);
 
-        // поверхность (без листвы)
         int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
         if (topY <= world.getBottomY() + 2) return false;
 
         BlockPos ground = new BlockPos(x, topY - 1, z);
         BlockPos spawnPos = ground.up();
 
-        // расстояние до ближайшего игрока
         double nearest = nearestPlayerDistance(world, spawnPos);
         if (nearest < MIN_DIST || nearest > MAX_DIST) return false;
 
-        // поверхность
         if (!isValidGround(world, ground)) return false;
 
-        // 2 блока воздуха (по коллизии)
         if (!world.getBlockState(spawnPos).getCollisionShape(world, spawnPos).isEmpty()) return false;
         if (!world.getBlockState(spawnPos.up()).getCollisionShape(world, spawnPos.up()).isEmpty()) return false;
 
-        // свет: если НЕ игнорируем — ограничиваем максимумом
         if (!cfg.daytimeIgnoreLight) {
             int light = world.getLightLevel(spawnPos);
             int max = MathHelper.clamp(cfg.daytimeMaxLight, 0, 15);
@@ -137,7 +123,6 @@ public final class DayHostileSpawner {
                 world.getRandom().nextFloat() * 360.0f, 0.0f
         );
 
-        // проверки
         if (!cfg.daytimeIgnoreLight) {
             if (!SpawnRestriction.canSpawn(type, world, SpawnReason.NATURAL, spawnPos, world.getRandom())) return false;
         } else {
@@ -161,24 +146,18 @@ public final class DayHostileSpawner {
     }
 
     private static boolean customCanSpawnOnSurface(ServerWorld world, BlockPos spawnPos) {
-        // не в жидкости
         if (!world.getFluidState(spawnPos).isEmpty()) return false;
         if (!world.getFluidState(spawnPos.up()).isEmpty()) return false;
-
-        // не внутри блока
         if (!world.getBlockState(spawnPos).isAir()) return false;
         if (!world.getBlockState(spawnPos.up()).isAir()) return false;
-
         return true;
     }
 
     private static boolean isValidGround(ServerWorld world, BlockPos ground) {
         BlockState st = world.getBlockState(ground);
 
-        // полный твёрдый блок (отсекает плиты/ступеньки/стекло и т.п.)
         if (!st.isOpaqueFullCube()) return false;
 
-        // исключения по ТЗ
         if (st.getBlock() instanceof LeavesBlock) return false;
         if (st.getBlock() instanceof CarpetBlock) return false;
         if (st.isIn(BlockTags.LEAVES)) return false;
@@ -186,7 +165,6 @@ public final class DayHostileSpawner {
         if (st.isIn(BlockTags.SLABS)) return false;
         if (st.isIn(BlockTags.STAIRS)) return false;
 
-        // стекло (в твоём Yarn нет GlassBlock как класса — отсекаем по имени)
         String cls = st.getBlock().getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
         if (cls.contains("glass")) return false;
 
@@ -194,18 +172,11 @@ public final class DayHostileSpawner {
     }
 
     private static EntityType<? extends MobEntity> pickHostileType(ServerWorld world, BlockPos pos) {
-        String biomeId = world.getBiome(pos)
-                .getKey()
-                .map(k -> k.getValue().toString())
-                .orElse("");
+        String biomeId = world.getBiome(pos).getKey().map(k -> k.getValue().toString()).orElse("");
         String b = biomeId.toLowerCase(java.util.Locale.ROOT);
 
-        if (b.contains("desert") || b.contains("badlands") || b.contains("mesa")) {
-            return EntityType.HUSK;
-        }
-        if (b.contains("snow") || b.contains("ice") || b.contains("frozen") || b.contains("taiga") || b.contains("grove")) {
-            return EntityType.STRAY;
-        }
+        if (b.contains("desert") || b.contains("badlands") || b.contains("mesa")) return EntityType.HUSK;
+        if (b.contains("snow") || b.contains("ice") || b.contains("frozen") || b.contains("taiga") || b.contains("grove")) return EntityType.STRAY;
 
         int r = world.getRandom().nextInt(100);
         if (r < 45) return EntityType.ZOMBIE;

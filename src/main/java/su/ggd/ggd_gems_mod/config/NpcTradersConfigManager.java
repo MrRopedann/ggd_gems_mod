@@ -1,299 +1,297 @@
-package su.ggd.ggd_gems_mod.config;
+    package su.ggd.ggd_gems_mod.config;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import net.fabricmc.loader.api.FabricLoader;
+    import com.google.gson.Gson;
+    import com.google.gson.GsonBuilder;
+    import net.fabricmc.loader.api.FabricLoader;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.Locale;
+    import java.io.IOException;
+    import java.nio.charset.StandardCharsets;
+    import java.nio.file.*;
+    import java.util.Locale;
 
-public final class NpcTradersConfigManager {
-    private NpcTradersConfigManager() {}
+    public final class NpcTradersConfigManager {
+        private NpcTradersConfigManager() {}
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+        private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private static final Path DIR = FabricLoader.getInstance().getConfigDir().resolve("ggd_gems_mod");
-    private static final Path FILE = DIR.resolve("npc_traders.json");
+        private static final Path DIR = FabricLoader.getInstance().getConfigDir().resolve("ggd_gems_mod");
+        private static final Path FILE = DIR.resolve("npc_traders.json");
 
-    private static NpcTradersConfig config = new NpcTradersConfig();
+        private static NpcTradersConfig config = new NpcTradersConfig();
 
-    public static NpcTradersConfig get() {
-        return config;
-    }
+        public static NpcTradersConfig get() {
+            return config;
+        }
 
-    public static void loadOrCreateDefault() {
-        try {
-            Files.createDirectories(DIR);
+        public static void loadOrCreateDefault() {
+            try {
+                Files.createDirectories(DIR);
 
-            if (!Files.exists(FILE)) {
+                if (!Files.exists(FILE)) {
+                    NpcTradersConfig def = buildDefault();
+                    normalize(def);
+                    write(def);
+                    config = def;
+                    return;
+                }
+
+                String json = Files.readString(FILE, StandardCharsets.UTF_8);
+                NpcTradersConfig loaded = GSON.fromJson(json, NpcTradersConfig.class);
+                config = (loaded == null) ? new NpcTradersConfig() : loaded;
+
+                boolean changed = normalize(config);
+                config.rebuildIndex();
+                if (changed) write(config);
+
+            } catch (Exception e) {
+                System.err.println("[ggd_gems_mod] Failed to load npc_traders.json");
+                e.printStackTrace();
+
                 NpcTradersConfig def = buildDefault();
                 normalize(def);
-                write(def);
+                def.rebuildIndex();
                 config = def;
-                return;
+
+                try { write(def); } catch (IOException ignored) {}
             }
-
-            String json = Files.readString(FILE, StandardCharsets.UTF_8);
-            NpcTradersConfig loaded = GSON.fromJson(json, NpcTradersConfig.class);
-            config = (loaded == null) ? new NpcTradersConfig() : loaded;
-
-            boolean changed = normalize(config);
-            config.rebuildIndex();
-            if (changed) write(config);
-
-        } catch (Exception e) {
-            System.err.println("[ggd_gems_mod] Failed to load npc_traders.json");
-            e.printStackTrace();
-
-            NpcTradersConfig def = buildDefault();
-            normalize(def);
-            def.rebuildIndex();
-            config = def;
-
-            try { write(def); } catch (IOException ignored) {}
-        }
-    }
-
-    private static void write(NpcTradersConfig cfg) throws IOException {
-        String json = GSON.toJson(cfg);
-        Files.writeString(
-                FILE,
-                json,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-        );
-    }
-
-    private static boolean normalize(NpcTradersConfig cfg) {
-        boolean changed = false;
-
-        if (cfg.traders == null) {
-            cfg.traders = new java.util.ArrayList<>();
-            changed = true;
         }
 
-        if (cfg.traders.isEmpty()) {
-            cfg.traders.addAll(buildDefault().traders);
-            changed = true;
+        private static void write(NpcTradersConfig cfg) throws IOException {
+            String json = GSON.toJson(cfg);
+            Files.writeString(
+                    FILE,
+                    json,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
         }
 
-        for (NpcTradersConfig.TraderDef t : cfg.traders) {
-            if (t == null) continue;
+        private static boolean normalize(NpcTradersConfig cfg) {
+            boolean changed = false;
 
-            if (t.id == null || t.id.isBlank()) { t.id = "trader"; changed = true; }
-            t.id = t.id.trim().toLowerCase(Locale.ROOT);
-
-            if (t.name == null || t.name.isBlank()) { t.name = "Торговец"; changed = true; }
-            if (t.entityType == null || t.entityType.isBlank()) { t.entityType = "minecraft:villager"; changed = true; }
-            if (t.profession == null || t.profession.isBlank()) { t.profession = "minecraft:cleric"; changed = true; }
-
-            if (t.spawnDistance <= 0) { t.spawnDistance = 2.0; changed = true; }
-
-            if (t.trades == null) { t.trades = new java.util.ArrayList<>(); changed = true; }
-            if (t.trades.isEmpty()) {
-                t.trades.addAll(defaultTradesForTrader(t.id));
+            if (cfg.traders == null) {
+                cfg.traders = new java.util.ArrayList<>();
                 changed = true;
             }
 
-            for (NpcTradersConfig.TradeDef tr : t.trades) {
-                if (tr == null) continue;
+            if (cfg.traders.isEmpty()) {
+                cfg.traders.addAll(buildDefault().traders);
+                changed = true;
+            }
 
-                if (tr.buy == null) {
+            for (NpcTradersConfig.TraderDef t : cfg.traders) {
+                if (t == null) continue;
+
+                if (t.id == null || t.id.isBlank()) { t.id = "trader"; changed = true; }
+                t.id = t.id.trim().toLowerCase(Locale.ROOT);
+
+                if (t.name == null || t.name.isBlank()) { t.name = "Торговец"; changed = true; }
+                if (t.entityType == null || t.entityType.isBlank()) { t.entityType = "minecraft:villager"; changed = true; }
+                if (t.profession == null || t.profession.isBlank()) { t.profession = "minecraft:cleric"; changed = true; }
+
+                if (t.spawnDistance <= 0) { t.spawnDistance = 2.0; changed = true; }
+
+                if (t.trades == null) { t.trades = new java.util.ArrayList<>(); changed = true; }
+                if (t.trades.isEmpty()) {
+                    t.trades.addAll(defaultTradesForTrader(t.id));
+                    changed = true;
+                }
+
+                for (NpcTradersConfig.TradeDef tr : t.trades) {
+                    if (tr == null) continue;
+
+                    if (tr.buy == null) {
+                        tr.buy = new NpcTradersConfig.StackDef();
+                        tr.buy.item = "ggd_gems_mod:piastre";
+                        tr.buy.count = 30;
+                        changed = true;
+                    }
+                    if (tr.buy.item == null) { tr.buy.item = "ggd_gems_mod:piastre"; changed = true; }
+                    if (tr.buy.count <= 0) { tr.buy.count = 1; changed = true; }
+
+                    // sell или sellGem обязателен
+                    if (tr.sell == null && tr.sellGem == null) {
+                        tr.sellGem = new NpcTradersConfig.SellGemDef();
+                        tr.sellGem.type = "atk";
+                        tr.sellGem.level = 1;
+                        changed = true;
+                    }
+
+                    if (tr.sell != null) {
+                        if (tr.sell.item == null) { tr.sell.item = "minecraft:cobblestone"; changed = true; }
+                        if (tr.sell.count <= 0) { tr.sell.count = 1; changed = true; }
+                    }
+
+                    if (tr.sellGem != null) {
+                        if (tr.sellGem.type == null) { tr.sellGem.type = "atk"; changed = true; }
+                        tr.sellGem.type = tr.sellGem.type.trim().toLowerCase(Locale.ROOT);
+                        if (tr.sellGem.level <= 0) { tr.sellGem.level = 1; changed = true; }
+                    }
+
+                    if (tr.maxUses <= 0) { tr.maxUses = 999999; changed = true; }
+                    if (tr.merchantExperience < 0) { tr.merchantExperience = 0; changed = true; }
+                    if (tr.priceMultiplier < 0) { tr.priceMultiplier = 0.0f; changed = true; }
+                }
+            }
+
+            cfg.rebuildIndex();
+            return changed;
+        }
+
+        private static java.util.List<NpcTradersConfig.TradeDef> defaultTradesForTrader(String traderId) {
+            String id = (traderId == null ? "" : traderId.trim().toLowerCase(java.util.Locale.ROOT));
+            return switch (id) {
+                case "gems" -> buildDefaultGemTrades();
+                case "resources" -> buildDefaultResourceTrades();
+                default -> java.util.List.of(buildDefaultGemTraderSingleRandomTrade()); // безопасный fallback
+            };
+        }
+
+        private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultResourceTrades() {
+            var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+
+            // Камень/строительство
+            out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:cobblestone", 64));
+            out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:dirt", 64));
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:sand", 64));
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:gravel", 64));
+
+            // Дерево
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:oak_log", 16));
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:spruce_log", 16));
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:oak_planks", 64));
+
+            // Свет/выживание
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:coal", 16));
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:torch", 32));
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:string", 16));
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:arrow", 32));
+
+            // Еда (простая)
+            out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:bread", 8));
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:cooked_beef", 8));
+
+            // Руды базовые
+            out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:iron_ingot", 4));
+            out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:copper_ingot", 8));
+            out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:redstone", 16));
+            out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:lapis_lazuli", 16));
+
+            return out;
+        }
+
+
+        private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultGemTrades() {
+            var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+
+            final String currency = "ggd_gems_mod:piastre";
+            final int price = 30;
+
+            var all = su.ggd.ggd_gems_mod.gem.GemRegistry.all();
+            if (!all.isEmpty()) {
+                for (String type : all.keySet()) {
+                    if (type == null || type.isBlank()) continue;
+
+                    NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
                     tr.buy = new NpcTradersConfig.StackDef();
-                    tr.buy.item = "ggd_gems_mod:piastre";
-                    tr.buy.count = 30;
-                    changed = true;
-                }
-                if (tr.buy.item == null) { tr.buy.item = "ggd_gems_mod:piastre"; changed = true; }
-                if (tr.buy.count <= 0) { tr.buy.count = 1; changed = true; }
+                    tr.buy.item = currency;
+                    tr.buy.count = price;
 
-                // sell или sellGem обязателен
-                if (tr.sell == null && tr.sellGem == null) {
                     tr.sellGem = new NpcTradersConfig.SellGemDef();
-                    tr.sellGem.type = "atk";
+                    tr.sellGem.type = type.trim().toLowerCase(java.util.Locale.ROOT);
                     tr.sellGem.level = 1;
-                    changed = true;
-                }
 
-                if (tr.sell != null) {
-                    if (tr.sell.item == null) { tr.sell.item = "minecraft:cobblestone"; changed = true; }
-                    if (tr.sell.count <= 0) { tr.sell.count = 1; changed = true; }
-                }
+                    tr.maxUses = 999999;
+                    tr.merchantExperience = 0;
+                    tr.priceMultiplier = 0.0f;
 
-                if (tr.sellGem != null) {
-                    if (tr.sellGem.type == null) { tr.sellGem.type = "atk"; changed = true; }
-                    tr.sellGem.type = tr.sellGem.type.trim().toLowerCase(Locale.ROOT);
-                    if (tr.sellGem.level <= 0) { tr.sellGem.level = 1; changed = true; }
+                    out.add(tr);
                 }
-
-                if (tr.maxUses <= 0) { tr.maxUses = 999999; changed = true; }
-                if (tr.merchantExperience < 0) { tr.merchantExperience = 0; changed = true; }
-                if (tr.priceMultiplier < 0) { tr.priceMultiplier = 0.0f; changed = true; }
             }
+
+            if (out.isEmpty()) out.add(buildDefaultGemTraderSingleRandomTrade());
+            return out;
         }
 
-        cfg.rebuildIndex();
-        return changed;
-    }
 
-    private static java.util.List<NpcTradersConfig.TradeDef> defaultTradesForTrader(String traderId) {
-        String id = (traderId == null ? "" : traderId.trim().toLowerCase(java.util.Locale.ROOT));
-        return switch (id) {
-            case "gems" -> buildDefaultGemTrades();
-            case "resources" -> buildDefaultResourceTrades();
-            default -> java.util.List.of(buildDefaultGemTraderSingleRandomTrade()); // безопасный fallback
-        };
-    }
+        private static NpcTradersConfig.TradeDef buildDefaultGemTraderSingleRandomTrade() {
+            NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
+            tr.buy = new NpcTradersConfig.StackDef();
+            tr.buy.item = "ggd_gems_mod:piastre";
+            tr.buy.count = 30;
 
-    private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultResourceTrades() {
-        var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+            tr.sellGem = new NpcTradersConfig.SellGemDef();
+            tr.sellGem.type = ""; // пусто => рандом (если у тебя это поддержано в логике торговли)
+            tr.sellGem.level = 1;
 
-        // Камень/строительство
-        out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:cobblestone", 64));
-        out.add(trade("ggd_gems_mod:piastre", 1, "minecraft:dirt", 64));
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:sand", 64));
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:gravel", 64));
-
-        // Дерево
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:oak_log", 16));
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:spruce_log", 16));
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:oak_planks", 64));
-
-        // Свет/выживание
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:coal", 16));
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:torch", 32));
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:string", 16));
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:arrow", 32));
-
-        // Еда (простая)
-        out.add(trade("ggd_gems_mod:piastre", 2, "minecraft:bread", 8));
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:cooked_beef", 8));
-
-        // Руды базовые
-        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:iron_ingot", 4));
-        out.add(trade("ggd_gems_mod:piastre", 3, "minecraft:copper_ingot", 8));
-        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:redstone", 16));
-        out.add(trade("ggd_gems_mod:piastre", 4, "minecraft:lapis_lazuli", 16));
-
-        return out;
-    }
+            tr.maxUses = 999999;
+            tr.merchantExperience = 0;
+            tr.priceMultiplier = 0.0f;
+            return tr;
+        }
 
 
-    private static java.util.List<NpcTradersConfig.TradeDef> buildDefaultGemTrades() {
-        var out = new java.util.ArrayList<NpcTradersConfig.TradeDef>();
+        private static NpcTradersConfig buildDefault() {
+            NpcTradersConfig cfg = new NpcTradersConfig();
 
-        // цена по умолчанию (можно потом вынести в конфиг)
-        final String currency = "ggd_gems_mod:piastre";
-        final int price = 30;
+            cfg.traders.add(buildDefaultGemTrader());
 
-        GemsConfig gemsCfg = GemsConfigManager.get();
-        if (gemsCfg != null && gemsCfg.gems != null && !gemsCfg.gems.isEmpty()) {
-            for (GemsConfig.GemDef g : gemsCfg.gems) {
-                if (g == null || g.type == null || g.type.isBlank()) continue;
+            NpcTradersConfig.TraderDef res = new NpcTradersConfig.TraderDef();
+            res.id = "resources";
+            res.name = "Скупщик ресурсов";
+            res.entityType = "minecraft:villager";
+            res.profession = "minecraft:toolsmith";
+            res.spawnDistance = 2.0;
+            res.invulnerable = true;
+            res.noAi = true;
+            res.nameVisible = true;
 
-                NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
-                tr.buy = new NpcTradersConfig.StackDef();
-                tr.buy.item = currency;
-                tr.buy.count = price;
+            res.trades.addAll(buildDefaultResourceTrades());
 
-                tr.sellGem = new NpcTradersConfig.SellGemDef();
-                tr.sellGem.type = g.type.trim().toLowerCase(java.util.Locale.ROOT);
-                tr.sellGem.level = 1;
+            cfg.traders.add(res);
 
-                tr.maxUses = 999999;
-                tr.merchantExperience = 0;
-                tr.priceMultiplier = 0.0f;
+            cfg.rebuildIndex();
+            return cfg;
+        }
 
-                out.add(tr);
+
+        private static NpcTradersConfig.TraderDef buildDefaultGemTrader() {
+            NpcTradersConfig.TraderDef t = new NpcTradersConfig.TraderDef();
+            t.id = "gems";
+            t.name = "Торговец самоцветами";
+            t.entityType = "minecraft:villager";
+            t.profession = "minecraft:cleric";
+            t.spawnDistance = 2.0;
+            t.invulnerable = true;
+            t.noAi = true;
+            t.nameVisible = true;
+
+            t.trades.addAll(buildDefaultGemTrades());
+            return t;
+        }
+
+        private static NpcTradersConfig.TradeDef trade(String buyItem, int buyCount, String sellItem, int sellCount) {
+            NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
+
+            tr.buy = new NpcTradersConfig.StackDef();
+            tr.buy.item = buyItem;
+            tr.buy.count = buyCount;
+
+            tr.sell = new NpcTradersConfig.StackDef();
+            tr.sell.item = sellItem;
+            tr.sell.count = sellCount;
+
+            return tr;
+        }
+
+        public static boolean isNpcName(String name) {
+            NpcTradersConfig cfg = get();
+            if (cfg == null || cfg.traders == null) return false;
+            for (NpcTradersConfig.TraderDef t : cfg.traders) {
+                if (t != null && t.name != null && t.name.equals(name)) return true;
             }
+            return false;
         }
 
-        // Если по какой-то причине гемов нет — оставим “рандомный”
-        if (out.isEmpty()) out.add(buildDefaultGemTraderSingleRandomTrade());
-
-        return out;
     }
-
-    private static NpcTradersConfig.TradeDef buildDefaultGemTraderSingleRandomTrade() {
-        NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
-        tr.buy = new NpcTradersConfig.StackDef();
-        tr.buy.item = "ggd_gems_mod:piastre";
-        tr.buy.count = 30;
-
-        tr.sellGem = new NpcTradersConfig.SellGemDef();
-        tr.sellGem.type = ""; // пусто => рандом (если у тебя это поддержано в логике торговли)
-        tr.sellGem.level = 1;
-
-        tr.maxUses = 999999;
-        tr.merchantExperience = 0;
-        tr.priceMultiplier = 0.0f;
-        return tr;
-    }
-
-
-    private static NpcTradersConfig buildDefault() {
-        NpcTradersConfig cfg = new NpcTradersConfig();
-
-        cfg.traders.add(buildDefaultGemTrader());
-
-        NpcTradersConfig.TraderDef res = new NpcTradersConfig.TraderDef();
-        res.id = "resources";
-        res.name = "Скупщик ресурсов";
-        res.entityType = "minecraft:villager";
-        res.profession = "minecraft:toolsmith";
-        res.spawnDistance = 2.0;
-        res.invulnerable = true;
-        res.noAi = true;
-        res.nameVisible = true;
-
-        res.trades.addAll(buildDefaultResourceTrades());
-
-        cfg.traders.add(res);
-
-        cfg.rebuildIndex();
-        return cfg;
-    }
-
-
-    private static NpcTradersConfig.TraderDef buildDefaultGemTrader() {
-        NpcTradersConfig.TraderDef t = new NpcTradersConfig.TraderDef();
-        t.id = "gems";
-        t.name = "Торговец самоцветами";
-        t.entityType = "minecraft:villager";
-        t.profession = "minecraft:cleric";
-        t.spawnDistance = 2.0;
-        t.invulnerable = true;
-        t.noAi = true;
-        t.nameVisible = true;
-
-        t.trades.addAll(buildDefaultGemTrades());
-        return t;
-    }
-
-    private static NpcTradersConfig.TradeDef trade(String buyItem, int buyCount, String sellItem, int sellCount) {
-        NpcTradersConfig.TradeDef tr = new NpcTradersConfig.TradeDef();
-
-        tr.buy = new NpcTradersConfig.StackDef();
-        tr.buy.item = buyItem;
-        tr.buy.count = buyCount;
-
-        tr.sell = new NpcTradersConfig.StackDef();
-        tr.sell.item = sellItem;
-        tr.sell.count = sellCount;
-
-        return tr;
-    }
-
-    public static boolean isNpcName(String name) {
-        NpcTradersConfig cfg = get();
-        if (cfg == null || cfg.traders == null) return false;
-        for (NpcTradersConfig.TraderDef t : cfg.traders) {
-            if (t != null && t.name != null && t.name.equals(name)) return true;
-        }
-        return false;
-    }
-
-}

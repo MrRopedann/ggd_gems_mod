@@ -5,10 +5,9 @@ import net.minecraft.component.type.EquippableComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.registry.tag.ItemTags;
 import su.ggd.ggd_gems_mod.config.GemsConfig;
 import su.ggd.ggd_gems_mod.registry.ModItems;
-import net.minecraft.registry.tag.ItemTags;
-
 
 public final class GemTargeting {
     private GemTargeting() {}

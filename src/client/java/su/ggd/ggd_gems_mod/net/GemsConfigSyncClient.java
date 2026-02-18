@@ -3,7 +3,7 @@ package su.ggd.ggd_gems_mod.net;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.text.Text;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
-import su.ggd.ggd_gems_mod.net.ModNet;
+import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class GemsConfigSyncClient {
     private GemsConfigSyncClient() {}
@@ -11,6 +11,8 @@ public final class GemsConfigSyncClient {
     private static String lastHash;
 
     public static void init() {
+        if (!InitOnce.markDone("GemsConfigSyncClient")) return;
+
         ClientPlayNetworking.registerGlobalReceiver(ModNet.SYNC_GEMS_CONFIG_ID, (payload, context) -> {
             context.client().execute(() -> {
                 if (payload.hash() != null && payload.hash().equals(lastHash)) return;

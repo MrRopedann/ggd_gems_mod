@@ -11,12 +11,13 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.Identifier;
-import su.ggd.ggd_gems_mod.config.GemsConfig;
-import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.socket.GemSocketing;
 import su.ggd.ggd_gems_mod.socket.SocketedGem;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public final class GemAttributeApplier {
     private GemAttributeApplier() {}
@@ -57,17 +58,17 @@ public final class GemAttributeApplier {
     public static void rebuild(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return;
 
-        GemsConfig cfg = GemsConfigManager.get();
-        if (cfg == null || cfg.byType == null) return;
-
         // 1) Суммируем бонусы по атрибуту
         Map<Identifier, Double> totals = new HashMap<>();
 
-        List<SocketedGem> gems = GemSocketing.getSocketed(stack);
-        for (SocketedGem g : gems) {
+        for (SocketedGem g : GemSocketing.getSocketed(stack)) {
             if (g == null) continue;
 
-            GemsConfig.GemDef def = cfg.byType.get(g.type());
+            String typeKey = g.type();
+            if (typeKey == null || typeKey.isBlank()) continue;
+            typeKey = typeKey.trim().toLowerCase(Locale.ROOT);
+
+            var def = GemRegistry.get(typeKey);
             if (def == null || def.stat == null || def.stat.isBlank()) continue;
 
             Identifier attrId = parseStatId(def.stat);
@@ -77,7 +78,7 @@ public final class GemAttributeApplier {
             if (!ALLOWED.contains(attrId)) continue;
 
             int level = Math.max(1, g.level());
-            int max = (cfg.maxLevel > 0) ? cfg.maxLevel : 10;
+            int max = (def.maxLevel > 0) ? def.maxLevel : 10;
             level = Math.min(level, max);
 
             double total = def.base + def.perLevel * Math.max(0, level - 1);

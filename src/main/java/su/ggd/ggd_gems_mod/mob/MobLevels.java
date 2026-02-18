@@ -4,7 +4,6 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ExperienceOrbEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttribute;
@@ -13,18 +12,16 @@ import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.passive.WanderingTraderEntity;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
+import su.ggd.ggd_gems_mod.npc.GemTraderNpc;
 import su.ggd.ggd_gems_mod.root.Ggd_gems_mod;
 
 import java.util.HashMap;
@@ -32,6 +29,8 @@ import java.util.Map;
 
 public final class MobLevels {
     private MobLevels() {}
+
+    private static boolean DONE = false;
 
     private static final int MAX_LEVEL = 20;
     private static final double DIST_PER_LEVEL = 180.0;
@@ -68,13 +67,15 @@ public final class MobLevels {
     }
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         ServerEntityEvents.ENTITY_LOAD.register((Entity entity, ServerWorld world) -> {
             if (world == null || entity == null) return;
             if (!(entity instanceof MobEntity mob)) return;
-            if (isOurTraderNpc(mob)) return;
-            if (isExcluded(mob)) return;
-            if (isOurTraderNpc(mob)) return;
 
+            if (isOurTraderNpc(entity)) return;
+            if (isExcluded(mob)) return;
 
             normalizeBaseOnce(mob);
             ensureLevelAndApply(world, mob);
@@ -82,12 +83,10 @@ public final class MobLevels {
 
         EntityTrackingEvents.START_TRACKING.register((Entity entity, ServerPlayerEntity player) -> {
             if (!(entity instanceof MobEntity mob)) return;
-            if (isOurTraderNpc(mob)) return;
+
+            if (isOurTraderNpc(entity)) return;
             if (isExcluded(mob)) return;
-            if (isOurTraderNpc(mob)) return;
 
-
-            // уровень уже есть (или выставится при load), но на всякий
             if (!MobLevelUtil.hasLevelTag(mob)) {
                 if (mob.getEntityWorld() instanceof ServerWorld world) {
                     normalizeBaseOnce(mob);
@@ -99,13 +98,12 @@ public final class MobLevels {
             su.ggd.ggd_gems_mod.net.MobLevelSyncServer.sendTo(player, mob, lvl);
         });
 
-
         ServerLivingEntityEvents.AFTER_DEATH.register((LivingEntity entity, DamageSource src) -> {
             if (!(entity.getEntityWorld() instanceof ServerWorld world)) return;
             if (!(entity instanceof MobEntity mob)) return;
-            if (isOurTraderNpc(mob)) return;
+
+            if (isOurTraderNpc(entity)) return;
             if (isExcluded(mob)) return;
-            if (isOurTraderNpc(mob)) return;
 
             int lvl = MobLevelUtil.getLevel(mob);
             int extra = Math.max(0, (lvl - 1) * EXTRA_XP_PER_LEVEL);
@@ -115,16 +113,18 @@ public final class MobLevels {
         });
     }
 
-    // Только жители исключены из системы уровней
+    // только жители исключены
     private static boolean isExcluded(MobEntity mob) {
         return mob instanceof VillagerEntity || mob instanceof WanderingTraderEntity;
     }
-    /* Все пасивыне мобы исключабтся из системы уровней
-    private static boolean isExcluded(MobEntity mob) {
-        // Все пассивные (включая жителей) исключаем из системы уровней
-        return mob instanceof PassiveEntity;
+
+    private static boolean isOurTraderNpc(Entity e) {
+        if (e == null) return false;
+        for (String tag : e.getCommandTags()) {
+            if (tag != null && tag.startsWith(GemTraderNpc.TAG_PREFIX)) return true;
+        }
+        return false;
     }
-    */
 
     private static void normalizeBaseOnce(MobEntity mob) {
         if (mob.getCommandTags().contains(TAG_BASE_NORMALIZED)) return;
@@ -133,7 +133,6 @@ public final class MobLevels {
         BaseStats s = BASE.get(typeId);
         if (s == null) return;
 
-        // убрать наши модификаторы уровня перед нормализацией
         removeModifier(mob, EntityAttributes.MAX_HEALTH, MOD_HEALTH);
         removeModifier(mob, EntityAttributes.ARMOR, MOD_ARMOR);
         removeModifier(mob, EntityAttributes.ATTACK_DAMAGE, MOD_ATTACK);
@@ -157,7 +156,6 @@ public final class MobLevels {
 
     private static void ensureLevelAndApply(ServerWorld world, MobEntity mob) {
         int lvl;
-
         if (!MobLevelUtil.hasLevelTag(mob)) {
             lvl = computeLevel(world, mob);
             MobLevelUtil.setLevel(mob, lvl);
@@ -167,23 +165,18 @@ public final class MobLevels {
 
         applyLevelScaling(mob, lvl);
 
-        // ВАНИЛЛУ НЕ ТРОГАЕМ: иначе появится имя при наведении
         clearGeneratedLevelName(mob);
 
-        // Синхронизируем уровень на клиент для HUD
         su.ggd.ggd_gems_mod.net.MobLevelSyncServer.send(mob, lvl);
-
     }
 
     private static void clearGeneratedLevelName(MobEntity mob) {
-        // чистим только то, что ставил наш мод
         if (mob.getCommandTags().contains(TAG_LEVEL_NAME)) {
             mob.setCustomName(null);
             mob.setCustomNameVisible(false);
             mob.removeCommandTag(TAG_LEVEL_NAME);
         }
     }
-
 
     private static int computeLevel(ServerWorld world, MobEntity mob) {
         BlockPos spawn = world.getLevelProperties().getSpawnPoint().getPos();
@@ -206,18 +199,10 @@ public final class MobLevels {
 
         if (level <= 1) return;
 
-        // HP — множитель ок
         double healthMul = 0.15 * (level - 1);
-
-        // ATTACK — множитель ок (у большинства мобов база > 0)
         double attackMul = 0.12 * (level - 1);
-
-        // SPEED — множитель ок
         double speedMul  = 0.01 * (level - 1);
-
-        // ARMOR: у большинства мобов база 0, поэтому множитель бессмысленен.
-        // Делаем плоский прирост брони.
-        double armorAdd = 0.35 * (level - 1); // пример: Lv13 => +4.2 брони
+        double armorAdd  = 0.35 * (level - 1);
 
         addMulTotal(mob, EntityAttributes.MAX_HEALTH, MOD_HEALTH, healthMul);
         addMulTotal(mob, EntityAttributes.ATTACK_DAMAGE, MOD_ATTACK, attackMul);
@@ -239,9 +224,7 @@ public final class MobLevels {
         if (inst == null) return;
 
         inst.addPersistentModifier(new EntityAttributeModifier(
-                id,
-                amount,
-                EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
+                id, amount, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
         ));
     }
 
@@ -251,57 +234,8 @@ public final class MobLevels {
         if (inst == null) return;
 
         inst.addPersistentModifier(new EntityAttributeModifier(
-                id,
-                amount,
-                EntityAttributeModifier.Operation.ADD_VALUE
+                id, amount, EntityAttributeModifier.Operation.ADD_VALUE
         ));
-    }
-
-    /**
-     * Имя синхронизируется клиенту. Поэтому сюда же добавляем отображаемые статы,
-     * а HUD просто выводит displayName без вычислений.
-     */
-    private static void applyLevelNameWithStats(MobEntity mob, int level) {
-        // Если есть чужое кастомное имя, и оно не наше — не трогаем
-        if (!mob.getCommandTags().contains(TAG_LEVEL_NAME) && mob.getCustomName() != null) return;
-
-        Text baseName = mob.getType().getName();
-
-        double armor = getAttrValue(mob, EntityAttributes.ARMOR);
-        double atk   = getAttrValue(mob, EntityAttributes.ATTACK_DAMAGE);
-
-        String armorS = trim2(armor);
-        String atkS   = trim2(atk);
-
-        // "[Lv 13] Скелет (🛡 4.2 ⚔ 4.9)"
-        Text name = Text.literal("[Lv " + level + "] ")
-                .append(baseName)
-                .append(Text.literal(" (\uD83D\uDEE1 " + armorS + " \u2694 " + atkS + ")"));
-
-        mob.setCustomName(name);
-        mob.setCustomNameVisible(false);
-        mob.addCommandTag(TAG_LEVEL_NAME);
-    }
-
-    private static double getAttrValue(LivingEntity e, RegistryEntry<EntityAttribute> attr) {
-        EntityAttributeInstance inst = e.getAttributeInstance(attr);
-        if (inst == null) return 0.0;
-        return inst.getValue();
-    }
-
-    private static String trim2(double v) {
-        String s = String.format(java.util.Locale.ROOT, "%.2f", v);
-        return s.replaceAll("0+$", "").replaceAll("\\.$", "");
-    }
-
-    private static boolean isOurTraderNpc(MobEntity mob) {
-        if (!(mob instanceof VillagerEntity) && !(mob instanceof WanderingTraderEntity)) return false;
-
-        String display = mob.getDisplayName().getString();
-        if (NpcTradersConfigManager.isNpcName(display)) return true;
-
-        String custom = mob.getCustomName() != null ? mob.getCustomName().getString() : "";
-        return custom.contains("ggd_trader:") || display.contains("ggd_trader:");
     }
 
     private record BaseStats(double maxHealth, double attackDamage, double armor, double moveSpeed) {}

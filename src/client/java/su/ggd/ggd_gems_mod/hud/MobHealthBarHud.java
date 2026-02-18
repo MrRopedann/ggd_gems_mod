@@ -19,13 +19,11 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.entity.attribute.EntityAttribute;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.registry.entry.RegistryEntry;
-import su.ggd.ggd_gems_mod.mob.MobLevelUtil;
-
-
 
 public final class MobHealthBarHud implements HudRenderCallback {
+
+    private static boolean DONE = false;
 
     private static final int BAR_WIDTH = 54;
     private static final int BAR_HEIGHT = 7;
@@ -45,6 +43,9 @@ public final class MobHealthBarHud implements HudRenderCallback {
     private static final int SCREEN_MARGIN = 40;
 
     public static void init() {
+        if (DONE) return;
+        DONE = true;
+
         HudRenderCallback.EVENT.register(new MobHealthBarHud());
     }
 
@@ -170,7 +171,6 @@ public final class MobHealthBarHud implements HudRenderCallback {
         int fg = (aFg << 24) | 0xCC2222;
         int textColor = (aText << 24) | 0xFFFFFF;
 
-        // ПОДРОБНОСТИ (уровень/имя/атака/защита) показываем только при зажатом SHIFT
         if (isShiftDown(mc)) {
             int lvl = su.ggd.ggd_gems_mod.mob.MobLevelClientCache.get(e.getId());
 
@@ -182,8 +182,6 @@ public final class MobHealthBarHud implements HudRenderCallback {
             drawScaledText(ctx, tr, title, x, top - (int) (10 * barScale), textColor, barScale * 0.85f, true);
         }
 
-
-        // ХП бар и число ХП — всегда
         ctx.fill(left, top, left + w, top + h, bg);
         ctx.fill(left, top, left + filled, top + h, fg);
 
@@ -202,14 +200,11 @@ public final class MobHealthBarHud implements HudRenderCallback {
         return s.replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
-
     private static boolean isShiftDown(MinecraftClient mc) {
         var window = mc.getWindow();
         return InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_LEFT_SHIFT)
                 || InputUtil.isKeyPressed(window, GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
-
-
 
     private static String formatHp(float v) {
         float rounded = Math.round(v * 10f) / 10f;

@@ -1,7 +1,9 @@
 package su.ggd.ggd_gems_mod.socket;
 
 import net.minecraft.item.ItemStack;
+import su.ggd.ggd_gems_mod.gem.GemRegistry;
 import su.ggd.ggd_gems_mod.registry.ModDataComponents;
+import su.ggd.ggd_gems_mod.targeting.GemTargeting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,44 +24,61 @@ public final class GemSocketing {
         return getSocketed(stack).size() < MAX_SOCKETS;
     }
 
+    /**
+     * Проверка, можно ли вставлять самоцвет данного типа в предмет (targets из конфига).
+     */
+    public static boolean canInsert(ItemStack target, String gemType) {
+        if (target == null || target.isEmpty()) return false;
+        if (gemType == null || gemType.isBlank()) return false;
+
+        var def = GemRegistry.get(gemType);
+        if (def == null) return false;
+
+        return GemTargeting.canInsertGemInto(target, def);
+    }
+
+    /**
+     * Добавляет/апгрейдит самоцвет в DataComponent слотов.
+     *
+     * Логика:
+     * - если тип уже вставлен: можно апгрейдить только на следующий уровень
+     * - если тип не вставлен: можно вставить только уровень 1
+     * - maxLevel берём из GemRegistry (def.maxLevel, дефолт 10)
+     *
+     * ВАЖНО: targets check не делается здесь — используйте {@link #canInsert(ItemStack, String)} до addGem().
+     */
     public static boolean addGem(ItemStack target, String gemType, int gemLevel) {
         if (gemType == null || gemType.isBlank()) return false;
         if (gemLevel <= 0) return false;
 
-        // max level берём из конфига (дефолт 10)
+        String key = gemType.trim().toLowerCase(java.util.Locale.ROOT);
+
         int max = 10;
-        var cfg = su.ggd.ggd_gems_mod.config.GemsConfigManager.get();
-        if (cfg != null && cfg.maxLevel > 0) max = cfg.maxLevel;
+        var def = GemRegistry.get(key);
+        if (def != null && def.maxLevel > 0) max = def.maxLevel;
 
         List<SocketedGem> current = new ArrayList<>(getSocketed(target));
 
-        // 1) Если такой тип уже есть — разрешаем ТОЛЬКО следующий уровень
         for (int i = 0; i < current.size(); i++) {
             SocketedGem existing = current.get(i);
-            if (existing.type().equals(gemType)) {
+            if (existing == null) continue;
+
+            if (key.equals(existing.type())) {
                 int expected = existing.level() + 1;
-
-                // уже max — апгрейд невозможен
                 if (existing.level() >= max) return false;
-
-                // чтобы не терять ресурс: разрешаем только точный next-level
                 if (gemLevel != expected) return false;
 
-                current.set(i, new SocketedGem(gemType, expected));
+                current.set(i, new SocketedGem(key, expected));
                 target.set(ModDataComponents.SOCKETED_GEMS, current);
                 return true;
             }
         }
 
-        // 2) Такого типа нет — разрешаем вставку ТОЛЬКО lvl1 (без перескоков)
         if (gemLevel != 1) return false;
-
         if (current.size() >= MAX_SOCKETS) return false;
 
-        current.add(new SocketedGem(gemType, 1));
+        current.add(new SocketedGem(key, 1));
         target.set(ModDataComponents.SOCKETED_GEMS, current);
         return true;
     }
-
-
 }

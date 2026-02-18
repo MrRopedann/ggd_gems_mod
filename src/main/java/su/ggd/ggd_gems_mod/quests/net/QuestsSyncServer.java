@@ -4,20 +4,25 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import su.ggd.ggd_gems_mod.quests.config.QuestsConfigManager;
 import su.ggd.ggd_gems_mod.quests.service.QuestService;
+import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class QuestsSyncServer {
     private QuestsSyncServer() {}
 
     public static void init() {
+        if (!InitOnce.markDone("QuestsSyncServer")) return;
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity p = handler.player;
             sendDefsTo(p);
-            QuestService.sync(p); // NEW: state sync
+            QuestService.sync(p); // state sync
         });
     }
 
     public static void sendDefsTo(ServerPlayerEntity player) {
         String json = QuestsConfigManager.toJsonString();
+        if (json == null) json = "{}";
+
         String hash = QuestsConfigManager.sha256(json);
         QuestNet.sendDefs(player, hash, json);
     }

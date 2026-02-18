@@ -15,7 +15,11 @@ import org.jetbrains.annotations.Nullable;
 public final class QuestHooks {
     private QuestHooks() {}
 
+    private static boolean DONE = false;
+
     public static void init() {
+        if (DONE) return;
+        DONE = true;
 
         // KILL: фиксируем факт смерти и определяем атакующего игрока
         ServerLivingEntityEvents.AFTER_DEATH.register((LivingEntity entity, DamageSource source) -> {

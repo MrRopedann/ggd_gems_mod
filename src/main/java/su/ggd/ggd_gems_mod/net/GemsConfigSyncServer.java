@@ -5,20 +5,23 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
+import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class GemsConfigSyncServer {
     private GemsConfigSyncServer() {}
 
     public static void init() {
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            sendTo(handler.player);
-        });
+        if (!InitOnce.markDone("GemsConfigSyncServer")) return;
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> sendTo(handler.player));
     }
 
     public static void sendTo(ServerPlayerEntity player) {
+        // НИКАКИХ loadOrCreateDefault() здесь.
         String json = GemsConfigManager.toJsonString();
-        String hash = GemsConfigManager.sha256(json);
+        if (json == null) json = "{}";
 
+        String hash = GemsConfigManager.sha256(json);
         ServerPlayNetworking.send(player, new ModNet.SyncGemsConfigPayload(hash, json));
     }
 

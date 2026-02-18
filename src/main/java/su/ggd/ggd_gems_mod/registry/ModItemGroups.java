@@ -9,8 +9,8 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import su.ggd.ggd_gems_mod.config.GemsConfigManager;
 import su.ggd.ggd_gems_mod.gem.GemData;
+import su.ggd.ggd_gems_mod.gem.GemRegistry;
 import su.ggd.ggd_gems_mod.gem.GemStacks;
 import su.ggd.ggd_gems_mod.root.Ggd_gems_mod;
 
@@ -28,37 +28,36 @@ public final class ModItemGroups {
             .icon(() -> new ItemStack(ModItems.GEM))
             .displayName(Text.translatable("itemGroup." + Ggd_gems_mod.MOD_ID + ".gems"))
             .entries((context, entries) -> {
-                var cfg = GemsConfigManager.get();
-                if (cfg == null) return;
 
                 // монета
                 entries.add(new ItemStack(ModItems.PIASTRE));
 
-                if (cfg.gems == null || cfg.gems.isEmpty()) return;
+                var all = GemRegistry.all();
+                if (all.isEmpty()) return;
 
-                // дедуп по type (чтобы не падать при дубликатах в конфиге)
-                Set<String> seenTypes = new HashSet<>();
+                // дедуп по ключу (на всякий случай)
+                Set<String> seen = new HashSet<>();
 
-                for (var def : cfg.gems) {
-                    if (def == null || def.type == null || def.type.isBlank()) continue;
+                for (var e : all.entrySet()) {
+                    String type = e.getKey();
+                    if (type == null || type.isBlank()) continue;
 
-                    String type = def.type.trim().toLowerCase(Locale.ROOT);
-                    if (!seenTypes.add(type)) continue; // один тип — один раз
+                    String key = type.trim().toLowerCase(Locale.ROOT);
+                    if (!seen.add(key)) continue;
 
                     ItemStack stack = new ItemStack(ModItems.GEM);
 
-                    // ВАЖНО: сначала гарантируем уникальные компоненты (даже если конфиг сломан)
-                    GemData.setType(stack, type);
+                    // гарантируем компоненты
+                    GemData.setType(stack, key);
                     GemData.setLevel(stack, 1);
 
-                    // Затем применяем имя/описание из конфига (если найдётся def в индексе)
-                    GemStacks.applyGemDataFromConfig(stack, type, 1);
+                    // имя из GemRegistry (внутри GemStacks)
+                    GemStacks.applyGemDataFromConfig(stack, key, 1);
 
-                    // доп. защита: если почему-то данные не записались — пропускаем
+                    // защита от битых данных
                     String writtenType = GemData.getType(stack);
                     int writtenLvl = GemData.getLevel(stack);
                     if (writtenType == null || writtenType.isBlank() || writtenLvl <= 0) {
-                        System.out.println("[ggd_gems_mod] skip broken gem stack for type=" + type);
                         continue;
                     }
 
