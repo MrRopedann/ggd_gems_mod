@@ -1,6 +1,5 @@
 package su.ggd.ggd_gems_mod.combat;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -11,25 +10,15 @@ import java.util.Map;
 public final class DamagePopupTracker {
     private DamagePopupTracker() {}
 
-    private static boolean DONE = false;
-
     private static final double TRACK_DISTANCE = 24.0;
     private static final Map<Integer, Float> lastHp = new HashMap<>();
 
-    public static void init() {
-        if (DONE) return;
-        DONE = true;
-
-        ClientTickEvents.END_CLIENT_TICK.register(client -> tick(client));
-    }
-
-    private static void tick(MinecraftClient mc) {
+    public static void tick(MinecraftClient mc) {
         if (mc.world == null || mc.player == null) {
             lastHp.clear();
             return;
         }
 
-        // чистим “старые” записи, если сущность пропала
         lastHp.entrySet().removeIf(e -> mc.world.getEntityById(e.getKey()) == null);
 
         for (LivingEntity e : mc.world.getEntitiesByClass(

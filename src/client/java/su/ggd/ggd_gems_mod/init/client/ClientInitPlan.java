@@ -12,12 +12,11 @@ public final class ClientInitPlan {
         ClientHudInit.init();
         ClientTooltipsInit.init();
 
-        ClientCombatInit.init();
         ClientInventorySortInit.init();
         ClientPassiveInit.init();
         ClientQuestsInit.init();
 
         ClientKeybindsInit.init();
-        ClientScreensInit.init();
+        ClientTickInit.init();
     }
 }

@@ -10,5 +10,20 @@
   "key.ggd_gems_mod.sort_inventory": "Сортировка инвентаря/контейнера",
   "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s",
   "text.ggd_gems_mod.sort_button": "Sort",
-  "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s"
+  "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s",
+
+  "tooltip.ggd_gems_mod.level": "Уровень: %s/%s",
+  "tooltip.ggd_gems_mod.targets": "Применяется к: %s",
+  "tooltip.ggd_gems_mod.stat": "Характеристика: %s",
+  "tooltip.ggd_gems_mod.base": "Базовое значение: %s",
+  "tooltip.ggd_gems_mod.per_level": "За уровень: %s",
+  "tooltip.ggd_gems_mod.total": "Итого: %s",
+
+  "tooltip.ggd_gems_mod.target.any": "Любые предметы",
+  "tooltip.ggd_gems_mod.target.weapon": "Оружие",
+  "tooltip.ggd_gems_mod.target.armor": "Броня",
+  "tooltip.ggd_gems_mod.target.boots": "Ботинки",
+  "tooltip.ggd_gems_mod.target.tools": "Инструменты",
+  "tooltip.ggd_gems_mod.target.melee": "Ближнее оружие",
+  "tooltip.ggd_gems_mod.target.ranged": "Дальнобойное оружие"
 }

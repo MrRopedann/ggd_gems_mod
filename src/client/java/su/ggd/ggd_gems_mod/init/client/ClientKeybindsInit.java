@@ -1,6 +1,5 @@
 package su.ggd.ggd_gems_mod.init.client;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -41,20 +40,17 @@ public final class ClientKeybindsInit {
                 GLFW.GLFW_KEY_P,
                 KeyBinding.Category.MISC
         ));
+    }
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (OPEN_STATS.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.player != null) mc.setScreen(new PlayerStatsScreen());
-            }
-            while (OPEN_PASSIVES.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.player != null) mc.setScreen(new PassiveSkillsScreen());
-            }
-            while (OPEN_QUESTS.wasPressed()) {
-                MinecraftClient mc = MinecraftClient.getInstance();
-                if (mc.player != null) mc.setScreen(new QuestJournalScreen());
-            }
-        });
+    public static void tick(MinecraftClient client) {
+        while (OPEN_STATS != null && OPEN_STATS.wasPressed()) {
+            if (client.player != null) client.setScreen(new PlayerStatsScreen());
+        }
+        while (OPEN_PASSIVES != null && OPEN_PASSIVES.wasPressed()) {
+            if (client.player != null) client.setScreen(new PassiveSkillsScreen());
+        }
+        while (OPEN_QUESTS != null && OPEN_QUESTS.wasPressed()) {
+            if (client.player != null) client.setScreen(new QuestJournalScreen());
+        }
     }
 }

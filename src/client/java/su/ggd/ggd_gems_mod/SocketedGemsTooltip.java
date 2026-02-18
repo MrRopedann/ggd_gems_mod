@@ -1,6 +1,5 @@
 package su.ggd.ggd_gems_mod;
 
-import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -14,21 +13,13 @@ import java.util.Locale;
 public final class SocketedGemsTooltip {
     private SocketedGemsTooltip() {}
 
-    private static boolean DONE = false;
-
-    public static void init() {
-        if (DONE) return;
-        DONE = true;
-
-        ItemTooltipCallback.EVENT.register((stack, ctx, type, tooltip) -> appendSocketInfo(stack, tooltip));
-    }
-
-    private static void appendSocketInfo(ItemStack stack, List<Text> tooltip) {
+    public static void append(ItemStack stack, List<Text> tooltip) {
         List<SocketedGem> gems = GemSocketing.getSocketed(stack);
         if (gems.isEmpty()) return;
 
         for (int i = 0; i < gems.size(); i++) {
             SocketedGem g = gems.get(i);
+            if (g == null) continue;
 
             String gemType = g.type();
             int level = g.level();

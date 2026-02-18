@@ -1,12 +1,10 @@
 package su.ggd.ggd_gems_mod.passive.net;
 
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import su.ggd.ggd_gems_mod.passive.config.PassiveSkillsConfigManager;
 import su.ggd.ggd_gems_mod.passive.state.PassiveSkillsState;
-import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class PassiveSkillsSyncServer {
     private PassiveSkillsSyncServer() {}

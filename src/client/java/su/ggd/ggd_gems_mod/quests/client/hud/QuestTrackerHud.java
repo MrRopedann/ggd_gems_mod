@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import su.ggd.ggd_gems_mod.quests.client.QuestClientState;
@@ -15,14 +16,9 @@ import su.ggd.ggd_gems_mod.quests.state.QuestsState;
 
 import java.util.Map;
 
-public final class QuestTrackerHud implements HudRenderCallback {
+public final class QuestTrackerHud{
 
-    public static void init() {
-        HudRenderCallback.EVENT.register(new QuestTrackerHud());
-    }
-
-    @Override
-    public void onHudRender(DrawContext ctx, net.minecraft.client.render.RenderTickCounter tickCounter) {
+    public static void render(DrawContext ctx, RenderTickCounter tickCounter) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.player == null) return;
 

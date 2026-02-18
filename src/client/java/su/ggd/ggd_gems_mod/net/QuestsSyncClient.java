@@ -4,27 +4,22 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.text.Text;
 import su.ggd.ggd_gems_mod.quests.config.QuestsConfigManager;
 import su.ggd.ggd_gems_mod.quests.net.QuestNet;
-import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class QuestsSyncClient {
     private QuestsSyncClient() {}
 
     private static String lastHash;
 
-    public static void init() {
-        if (!InitOnce.markDone("QuestsSyncClient")) return;
+    public static void handleDefs(QuestNet.SyncQuestDefsPayload payload, ClientPlayNetworking.Context context) {
+        context.client().execute(() -> {
+            if (payload.hash() != null && payload.hash().equals(lastHash)) return;
+            lastHash = payload.hash();
 
-        ClientPlayNetworking.registerGlobalReceiver(QuestNet.SYNC_QUEST_DEFS_ID, (payload, context) -> {
-            context.client().execute(() -> {
-                if (payload.hash() != null && payload.hash().equals(lastHash)) return;
-                lastHash = payload.hash();
+            QuestsConfigManager.applyFromNetworkJson(payload.json());
 
-                QuestsConfigManager.applyFromNetworkJson(payload.json());
-
-                if (context.client().player != null) {
-                    context.client().player.sendMessage(Text.literal("§a[Quests] Definitions synced from server."), true);
-                }
-            });
+            if (context.client().player != null) {
+                context.client().player.sendMessage(Text.literal("§a[Quests] Definitions synced from server."), true);
+            }
         });
     }
 }

@@ -1,17 +1,14 @@
 package su.ggd.ggd_gems_mod.net;
 
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import su.ggd.ggd_gems_mod.config.GemsConfigManager;
-import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class GemsConfigSyncServer {
     private GemsConfigSyncServer() {}
 
     public static void sendTo(ServerPlayerEntity player) {
-        // НИКАКИХ loadOrCreateDefault() здесь.
         String json = GemsConfigManager.toJsonString();
         if (json == null) json = "{}";
 

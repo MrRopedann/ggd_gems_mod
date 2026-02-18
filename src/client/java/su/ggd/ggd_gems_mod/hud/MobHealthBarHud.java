@@ -21,9 +21,7 @@ import net.minecraft.entity.attribute.EntityAttribute;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.registry.entry.RegistryEntry;
 
-public final class MobHealthBarHud implements HudRenderCallback {
-
-    private static boolean DONE = false;
+public final class MobHealthBarHud {
 
     private static final int BAR_WIDTH = 54;
     private static final int BAR_HEIGHT = 7;
@@ -42,15 +40,8 @@ public final class MobHealthBarHud implements HudRenderCallback {
 
     private static final int SCREEN_MARGIN = 40;
 
-    public static void init() {
-        if (DONE) return;
-        DONE = true;
 
-        HudRenderCallback.EVENT.register(new MobHealthBarHud());
-    }
-
-    @Override
-    public void onHudRender(DrawContext ctx, RenderTickCounter tickCounter) {
+    public static void render(DrawContext ctx, RenderTickCounter tickCounter){
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.world == null || mc.player == null) return;
 
