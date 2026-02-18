@@ -19,18 +19,12 @@ public final class NetworkingModuleInit {
     public static void init() {
         if (!InitOnce.markDone("NetworkingModuleInit")) return;
 
-        // 1) Payload codecs (всегда до любых send/receive)
         registerPayloads();
 
-        // 2) C2S handlers
         QuestStateServerHandlers.init();
+        // если InventorySortServer/PassiveSkillsUpgradeServer регаются не тут — не трогай
 
-        // 3) Sync on join
-        GemsConfigSyncServer.init();
-        PassiveSkillsSyncServer.init();
-        QuestsSyncServer.init();
-
-        // Inventory sort receiver — в InventorySortModuleInit
+        JoinSyncInit.init();
     }
 
     private static void registerPayloads() {

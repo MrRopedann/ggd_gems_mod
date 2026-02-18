@@ -10,13 +10,7 @@ public final class QuestsSyncServer {
     private QuestsSyncServer() {}
 
     public static void init() {
-        if (!InitOnce.markDone("QuestsSyncServer")) return;
 
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity p = handler.player;
-            sendDefsTo(p);
-            QuestService.sync(p); // state sync
-        });
     }
 
     public static void sendDefsTo(ServerPlayerEntity player) {

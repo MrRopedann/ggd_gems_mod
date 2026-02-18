@@ -11,9 +11,7 @@ public final class GemsConfigSyncServer {
     private GemsConfigSyncServer() {}
 
     public static void init() {
-        if (!InitOnce.markDone("GemsConfigSyncServer")) return;
-
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> sendTo(handler.player));
+        // intentionally empty (JOIN sync centralized in JoinSyncInit)
     }
 
     public static void sendTo(ServerPlayerEntity player) {

@@ -12,12 +12,7 @@ public final class PassiveSkillsSyncServer {
     private PassiveSkillsSyncServer() {}
 
     public static void init() {
-        if (!InitOnce.markDone("PassiveSkillsSyncServer")) return;
 
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            sendConfigTo(handler.player);
-            sendPlayerSkillsTo(handler.player);
-        });
     }
 
     public static void sendConfigTo(ServerPlayerEntity player) {
