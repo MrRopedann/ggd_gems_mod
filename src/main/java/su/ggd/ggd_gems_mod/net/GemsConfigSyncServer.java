@@ -10,10 +10,6 @@ import su.ggd.ggd_gems_mod.util.InitOnce;
 public final class GemsConfigSyncServer {
     private GemsConfigSyncServer() {}
 
-    public static void init() {
-        // intentionally empty (JOIN sync centralized in JoinSyncInit)
-    }
-
     public static void sendTo(ServerPlayerEntity player) {
         // НИКАКИХ loadOrCreateDefault() здесь.
         String json = GemsConfigManager.toJsonString();

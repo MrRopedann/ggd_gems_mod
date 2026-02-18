@@ -11,10 +11,6 @@ import su.ggd.ggd_gems_mod.util.InitOnce;
 public final class PassiveSkillsSyncServer {
     private PassiveSkillsSyncServer() {}
 
-    public static void init() {
-
-    }
-
     public static void sendConfigTo(ServerPlayerEntity player) {
         String json = PassiveSkillsConfigManager.toJsonString();
         if (json == null) json = "{}";

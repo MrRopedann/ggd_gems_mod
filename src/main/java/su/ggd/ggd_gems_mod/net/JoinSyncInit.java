@@ -22,7 +22,6 @@ public final class JoinSyncInit {
 
             // состояния
             PassiveSkillsSyncServer.sendPlayerSkillsTo(p);
-            // QuestsSyncServer.init() сейчас делает QuestService.sync(p) в JOIN — переносим сюда:
             su.ggd.ggd_gems_mod.quests.service.QuestService.sync(p);
         });
     }

@@ -9,10 +9,6 @@ import su.ggd.ggd_gems_mod.util.InitOnce;
 public final class QuestsSyncServer {
     private QuestsSyncServer() {}
 
-    public static void init() {
-
-    }
-
     public static void sendDefsTo(ServerPlayerEntity player) {
         String json = QuestsConfigManager.toJsonString();
         if (json == null) json = "{}";
