@@ -7,6 +7,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import su.ggd.ggd_gems_mod.quests.config.QuestDef;
+import su.ggd.ggd_gems_mod.currency.CurrencyService;
+
 
 public final class QuestRewards {
     private QuestRewards() {}
@@ -42,6 +44,11 @@ public final class QuestRewards {
                     if (msg == null || msg.isBlank()) break;
                     player.sendMessage(Text.literal(msg));
                 }
+                case "CURRENCY" -> {
+                    int amount = r.count == null ? 0 : r.count;
+                    if (amount > 0) CurrencyService.add(player, amount);
+                }
+
                 default -> {
                     // V1: остальные типы позже (CURRENCY, SKILL_POINTS, SET_PROFESSION, COMMAND...)
                 }

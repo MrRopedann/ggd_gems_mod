@@ -7,6 +7,8 @@ import su.ggd.ggd_gems_mod.hud.MobHealthBarHud;
 import su.ggd.ggd_gems_mod.hud.XpGainPopupHud;
 import su.ggd.ggd_gems_mod.quests.client.hud.QuestTrackerHud;
 import su.ggd.ggd_gems_mod.util.InitOnce;
+import su.ggd.ggd_gems_mod.hud.CurrencyHud;
+
 
 public final class ClientHudInit {
     private ClientHudInit() {}
@@ -19,6 +21,7 @@ public final class ClientHudInit {
             ExperienceBarTextHud.render(ctx, tickCounter);
             XpGainPopupHud.render(ctx, tickCounter);
             QuestTrackerHud.render(ctx, tickCounter);
+            CurrencyHud.render(ctx, tickCounter);
         });
     }
 }

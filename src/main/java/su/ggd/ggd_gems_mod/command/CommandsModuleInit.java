@@ -22,6 +22,9 @@ public final class CommandsModuleInit {
             QuestsCommands.register(dispatcher);
 
             ReloadCommand.register(dispatcher);
+
+            CurrencyCommands.register(dispatcher, registryAccess);
+
         });
     }
 }

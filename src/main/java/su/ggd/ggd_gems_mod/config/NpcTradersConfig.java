@@ -37,7 +37,20 @@ public class NpcTradersConfig {
     }
 
     public static class TradeDef {
-        public StackDef buy;          // обязательно
+        /**
+         * Цена в виртуальной валюте.
+         *
+         * Новый формат: предпочтителен.
+         * Legacy: если price == 0, можно использовать buy=item(piastre) как fallback.
+         */
+        public long price = 0;
+
+        /**
+         * Legacy-поле. Раньше покупки были за предмет (обычно ggd_gems_mod:piastre).
+         *
+         * Сохраняем для обратной совместимости конфигов.
+         */
+        public StackDef buy;
 
         public StackDef sell;         // либо sell...
         public SellGemDef sellGem;    // ...либо sellGem

@@ -16,6 +16,8 @@ public final class ClientInitPlan {
         ClientPassiveInit.init();
         ClientQuestsInit.init();
 
+        ClientMenuInit.init();
+
         ClientKeybindsInit.init();
         ClientTickInit.init();
     }

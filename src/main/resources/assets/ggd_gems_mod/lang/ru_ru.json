@@ -1,16 +1,18 @@
 {
   "item.ggd_gems_mod.gem": "Самоцвет",
   "itemGroup.ggd_gems_mod.gems": "Самоцветы",
-  "key.ggd_gems_mod.open_stats": "Открыть статы",
+  "item.ggd_gems_mod.piastre": "Пиастр",
+
+  "key.categories.ggd_gems_mod": "GGD",
   "key.ggd_gems_mod.open_stats": "Открыть статы",
   "key.ggd_gems_mod.open_passives": "Пассивные навыки",
-  "item.ggd_gems_mod.piastre": "Пиастр",
-  "container.repair.cost": "Требуется пиастр: %s",
-  "key.categories.ggd_gems_mod": "GGD",
+  "key.ggd_gems_mod.open_quests": "Квесты",
   "key.ggd_gems_mod.sort_inventory": "Сортировка инвентаря/контейнера",
+
+  "container.repair.cost": "Требуется пиастр: %s",
+
   "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s",
   "text.ggd_gems_mod.sort_button": "Sort",
-  "text.ggd_gems_mod.sort_mode": "Режим сортировки: %s",
 
   "tooltip.ggd_gems_mod.level": "Уровень: %s/%s",
   "tooltip.ggd_gems_mod.targets": "Применяется к: %s",

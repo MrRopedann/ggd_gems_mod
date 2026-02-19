@@ -6,8 +6,6 @@ import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -19,22 +17,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
-import net.minecraft.village.TradedItem;
 import net.minecraft.village.VillagerData;
 import net.minecraft.village.VillagerProfession;
 import net.minecraft.world.Heightmap;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfig;
 import su.ggd.ggd_gems_mod.config.NpcTradersConfigManager;
-import su.ggd.ggd_gems_mod.gem.GemRegistry;
-import su.ggd.ggd_gems_mod.gem.GemStacks;
-import su.ggd.ggd_gems_mod.registry.ModItems;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
-import java.util.Random;
 import java.util.function.Predicate;
 
 public final class GemTraderNpc {
@@ -88,12 +77,12 @@ public final class GemTraderNpc {
             mob.setPersistent();
         }
 
-        // трейды
+        // Ванильные трейды не используем: у нас кастомное меню торговли.
         if (entity instanceof VillagerEntity villager) {
             applyVillagerProfession(villager, def.profession);
-            applyTrades(villager, def);
+            villager.getOffers().clear();
         } else if (entity instanceof net.minecraft.entity.passive.WanderingTraderEntity trader) {
-            applyTradesToMerchant(trader.getOffers(), def);
+            trader.getOffers().clear();
         }
 
         world.spawnEntity(entity);
@@ -150,82 +139,6 @@ public final class GemTraderNpc {
 
         VillagerData data = villager.getVillagerData();
         villager.setVillagerData(data.withProfession(entry));
-    }
-
-    private static void applyTrades(VillagerEntity villager, NpcTradersConfig.TraderDef def) {
-        TradeOfferList offers = villager.getOffers();
-        offers.clear();
-        applyTradesToMerchant(offers, def);
-    }
-
-    private static void applyTradesToMerchant(TradeOfferList offers, NpcTradersConfig.TraderDef def) {
-        var all = GemRegistry.all();
-        List<String> allGemTypes = new ArrayList<>(all.keySet());
-        Random rnd = new Random();
-
-        if (def.trades == null) return;
-
-        for (NpcTradersConfig.TradeDef t : def.trades) {
-            if (t == null || t.buy == null) continue;
-
-            TradedItem buy = toTradedItem(t.buy);
-            if (buy == null) continue;
-
-            ItemStack sell = null;
-
-            // sellGem имеет приоритет
-            if (t.sellGem != null) {
-                if (allGemTypes.isEmpty()) continue;
-
-                String type = (t.sellGem.type == null ? "" : t.sellGem.type.trim().toLowerCase(Locale.ROOT));
-                if (type.isBlank()) {
-                    type = allGemTypes.get(rnd.nextInt(allGemTypes.size()));
-                } else if (!all.containsKey(type)) {
-                    continue; // неизвестный gem type
-                }
-
-                sell = new ItemStack(ModItems.GEM);
-                GemStacks.applyGemDataFromConfig(sell, type, Math.max(1, t.sellGem.level));
-            } else if (t.sell != null) {
-                sell = toItemStack(t.sell);
-            }
-
-            if (sell == null || sell.isEmpty()) continue;
-
-            offers.add(new TradeOffer(
-                    buy,
-                    sell,
-                    t.maxUses <= 0 ? 999999 : t.maxUses,
-                    Math.max(0, t.merchantExperience),
-                    t.priceMultiplier < 0 ? 0.0f : t.priceMultiplier
-            ));
-        }
-    }
-
-    private static TradedItem toTradedItem(NpcTradersConfig.StackDef def) {
-        if (def == null || def.item == null || def.item.isBlank()) return null;
-
-        Identifier id = Identifier.tryParse(def.item.trim());
-        if (id == null) return null;
-
-        Item item = Registries.ITEM.get(id);
-        if (item == null) return null;
-
-        int count = Math.max(1, def.count);
-        return new TradedItem(item, count);
-    }
-
-    private static ItemStack toItemStack(NpcTradersConfig.StackDef def) {
-        if (def == null || def.item == null || def.item.isBlank()) return ItemStack.EMPTY;
-
-        Identifier id = Identifier.tryParse(def.item.trim());
-        if (id == null) return ItemStack.EMPTY;
-
-        Item item = Registries.ITEM.get(id);
-        if (item == null) return ItemStack.EMPTY;
-
-        int count = Math.max(1, def.count);
-        return new ItemStack(item, count);
     }
 
     public static boolean isOurTrader(Entity e) {

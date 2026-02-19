@@ -2,11 +2,13 @@ package su.ggd.ggd_gems_mod.net;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import su.ggd.ggd_gems_mod.currency.net.BankNet;
+import su.ggd.ggd_gems_mod.currency.net.CurrencyNet;
+import su.ggd.ggd_gems_mod.currency.server.BankServerHandlers;
 import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortNet;
 import su.ggd.ggd_gems_mod.inventory.sort.net.InventorySortServer;
-import su.ggd.ggd_gems_mod.net.DamageNet;
-import su.ggd.ggd_gems_mod.net.MobLevelNet;
-import su.ggd.ggd_gems_mod.net.ModNet;
+import su.ggd.ggd_gems_mod.npc.net.NpcTraderNet;
+import su.ggd.ggd_gems_mod.npc.server.NpcTraderServerHandlers;
 import su.ggd.ggd_gems_mod.passive.net.PassiveSkillsNet;
 import su.ggd.ggd_gems_mod.passive.net.PassiveSkillsUpgradeServer;
 import su.ggd.ggd_gems_mod.quests.net.QuestNet;
@@ -30,6 +32,11 @@ public final class NetworkingModuleInit {
         ServerPlayNetworking.registerGlobalReceiver(QuestStateNet.C2S_ABANDON_ID, QuestStateServerHandlers::handleAbandon);
         ServerPlayNetworking.registerGlobalReceiver(QuestStateNet.C2S_TRACK_ID, QuestStateServerHandlers::handleTrack);
 
+        ServerPlayNetworking.registerGlobalReceiver(BankNet.WITHDRAW_ID, BankServerHandlers::handleWithdraw);
+        ServerPlayNetworking.registerGlobalReceiver(BankNet.DEPOSIT_ALL_ID, BankServerHandlers::handleDepositAll);
+
+        ServerPlayNetworking.registerGlobalReceiver(NpcTraderNet.BUY_ID, NpcTraderServerHandlers::handleBuy);
+
         JoinSyncInit.init();
     }
 
@@ -52,5 +59,13 @@ public final class NetworkingModuleInit {
         PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_START_ID, QuestStateNet.C2S_START_CODEC);
         PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_ABANDON_ID, QuestStateNet.C2S_ABANDON_CODEC);
         PayloadTypeRegistry.playC2S().register(QuestStateNet.C2S_TRACK_ID, QuestStateNet.C2S_TRACK_CODEC);
+
+        PayloadTypeRegistry.playS2C().register(CurrencyNet.SYNC_BALANCE_ID, CurrencyNet.SYNC_BALANCE_CODEC);
+
+        PayloadTypeRegistry.playC2S().register(BankNet.WITHDRAW_ID, BankNet.WITHDRAW_CODEC);
+        PayloadTypeRegistry.playC2S().register(BankNet.DEPOSIT_ALL_ID, BankNet.DEPOSIT_ALL_CODEC);
+
+        PayloadTypeRegistry.playS2C().register(NpcTraderNet.OPEN_TRADER_ID, NpcTraderNet.OPEN_TRADER_CODEC);
+        PayloadTypeRegistry.playC2S().register(NpcTraderNet.BUY_ID, NpcTraderNet.BUY_CODEC);
     }
 }

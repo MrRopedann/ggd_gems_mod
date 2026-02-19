@@ -9,5 +9,6 @@ public final class NpcModuleInit {
         if (!InitOnce.markDone("NpcModuleInit")) return;
 
         NpcDamageBlocker.init();
+        NpcTraderInteractHook.init();
     }
 }

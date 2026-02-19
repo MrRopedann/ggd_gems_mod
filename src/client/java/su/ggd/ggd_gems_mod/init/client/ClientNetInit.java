@@ -14,6 +14,10 @@ import su.ggd.ggd_gems_mod.passive.net.PassiveSkillsNet;
 import su.ggd.ggd_gems_mod.quests.net.QuestNet;
 import su.ggd.ggd_gems_mod.quests.net.QuestStateNet;
 import su.ggd.ggd_gems_mod.util.InitOnce;
+import su.ggd.ggd_gems_mod.currency.net.CurrencyNet;
+import su.ggd.ggd_gems_mod.net.CurrencySyncClient;
+import su.ggd.ggd_gems_mod.npc.client.NpcTraderClientHandlers;
+import su.ggd.ggd_gems_mod.npc.net.NpcTraderNet;
 
 public final class ClientNetInit {
     private ClientNetInit() {}
@@ -21,7 +25,6 @@ public final class ClientNetInit {
     public static void init() {
         if (!InitOnce.markDone("ClientNetInit")) return;
 
-        // S2C receivers registered in one place.
         ClientPlayNetworking.registerGlobalReceiver(ModNet.SYNC_GEMS_CONFIG_ID, GemsConfigSyncClient::handle);
 
         ClientPlayNetworking.registerGlobalReceiver(PassiveSkillsNet.SYNC_PASSIVES_CONFIG_ID, PassiveSkillsSyncClient::handleConfig);
@@ -33,5 +36,10 @@ public final class ClientNetInit {
 
         ClientPlayNetworking.registerGlobalReceiver(MobLevelNet.MOB_LEVEL_ID, MobLevelSyncClient::handle);
         ClientPlayNetworking.registerGlobalReceiver(DamageNet.DAMAGE_INDICATOR_ID, DamageIndicatorClient::handle);
+
+        ClientPlayNetworking.registerGlobalReceiver(CurrencyNet.SYNC_BALANCE_ID, CurrencySyncClient::handle);
+
+        // NPC trader UI
+        ClientPlayNetworking.registerGlobalReceiver(NpcTraderNet.OPEN_TRADER_ID, NpcTraderClientHandlers::handleOpen);
     }
 }

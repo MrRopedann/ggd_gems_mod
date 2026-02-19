@@ -1,10 +1,10 @@
 package su.ggd.ggd_gems_mod.mixin;
 
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.AnvilScreenHandler;
 import net.minecraft.screen.Property;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import su.ggd.ggd_gems_mod.config.EconomyConfig;
 import su.ggd.ggd_gems_mod.config.EconomyConfigManager;
-import su.ggd.ggd_gems_mod.currency.CurrencyItems;
 import su.ggd.ggd_gems_mod.currency.CurrencyPay;
+import su.ggd.ggd_gems_mod.currency.CurrencyService;
 import su.ggd.ggd_gems_mod.gem.GemAttributeApplier;
 import su.ggd.ggd_gems_mod.gem.GemData;
 import su.ggd.ggd_gems_mod.gem.GemRegistry;
@@ -139,9 +139,6 @@ public abstract class AnvilScreenHandlerMixin {
         EconomyConfig eco = EconomyConfigManager.get();
         if (eco == null || eco.anvil == null) return;
 
-        Item currency = CurrencyItems.getCurrencyItemOrNull();
-        if (currency == null) return;
-
         int cost;
         if (op == OP_INSERT) {
             int lvl = Math.max(1, GemData.getLevel(right));
@@ -155,16 +152,15 @@ public abstract class AnvilScreenHandlerMixin {
 
         if (cost <= 0) return;
 
-        if (!CurrencyPay.has(player, currency, cost)) {
+        if (!CurrencyPay.has(player, cost)) {
             cir.setReturnValue(false);
             cir.cancel();
 
             if (!player.getEntityWorld().isClient()) {
-                long t = player.getEntityWorld().getTime();
-                if (t - ggd$lastNoMoneyMsgTick > 10) {
-                    ggd$lastNoMoneyMsgTick = t;
-                    player.sendMessage(Text.literal("Недостаточно монет: нужно " + cost + "."), true);
-                }
+                long have = (player instanceof ServerPlayerEntity sp)
+                        ? CurrencyService.getBalance(sp)
+                        : 0L;
+                player.sendMessage(Text.literal("Недостаточно монет: нужно " + cost + " (есть " + have + ")."), true);
             }
         }
     }
@@ -186,9 +182,6 @@ public abstract class AnvilScreenHandlerMixin {
         EconomyConfig eco = EconomyConfigManager.get();
         if (eco == null || eco.anvil == null) return;
 
-        Item currency = CurrencyItems.getCurrencyItemOrNull();
-        if (currency == null) return;
-
         int cost;
         if (op == OP_INSERT) {
             int lvl = Math.max(1, GemData.getLevel(right));
@@ -201,7 +194,7 @@ public abstract class AnvilScreenHandlerMixin {
         }
 
         if (cost > 0) {
-            CurrencyPay.take(player, currency, cost);
+            CurrencyPay.take(player, cost); // виртуальная валюта
         }
     }
 
