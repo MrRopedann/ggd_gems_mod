@@ -1,7 +1,6 @@
 package su.ggd.ggd_gems_mod.passive;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -26,6 +25,7 @@ import su.ggd.ggd_gems_mod.passive.effects.BonusHpEffect;
 import su.ggd.ggd_gems_mod.passive.effects.MeleeDamageEffect;
 import su.ggd.ggd_gems_mod.passive.effects.MoveSpeedEffect;
 import su.ggd.ggd_gems_mod.passive.state.PassiveSkillsState;
+import su.ggd.ggd_gems_mod.util.InitOnce;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -60,8 +60,7 @@ public final class PassiveSkillHooks {
     };
 
     public static void init() {
-        if (DONE) return;
-        DONE = true;
+        if (!InitOnce.markDone("PassiveSkillHooks")) return;
 
         // ==========================================================
         // A) УРОН ПО ИГРОКУ: поглощение урона + onPlayerDamaged (skin_mutation и т.п.)
@@ -158,8 +157,6 @@ public final class PassiveSkillHooks {
             return ActionResult.CONSUME;
         });
 
-        ServerTickEvents.END_SERVER_TICK.register(PassiveSkillHooks::ironStomachTick);
-
         // ==========================================================
         // 1) block break hooks
         // ==========================================================
@@ -210,11 +207,6 @@ public final class PassiveSkillHooks {
             PENDING_TOOL_DAMAGE.put(sp.getUuid(), new PendingToolDamage(hand, tool.getDamage(), 1));
             return ActionResult.PASS;
         });
-
-        // ==========================================================
-        // 2) server tick hooks (регистрируем один раз)
-        // ==========================================================
-        ServerTickEvents.END_SERVER_TICK.register(PassiveSkillHooks::onServerTick);
     }
 
     private static void onServerTick(MinecraftServer server) {
@@ -398,4 +390,13 @@ public final class PassiveSkillHooks {
         }
         return null;
     }
+
+    public static void tick(MinecraftServer server) {
+        // iron_stomach
+        ironStomachTick(server);
+
+        // пассивки/инструменты/эффекты
+        onServerTick(server);
+    }
+
 }

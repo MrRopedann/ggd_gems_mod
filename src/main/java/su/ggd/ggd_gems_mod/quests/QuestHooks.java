@@ -1,7 +1,6 @@
 package su.ggd.ggd_gems_mod.quests;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -11,15 +10,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import org.jetbrains.annotations.Nullable;
+import su.ggd.ggd_gems_mod.util.InitOnce;
 
 public final class QuestHooks {
     private QuestHooks() {}
 
-    private static boolean DONE = false;
-
     public static void init() {
-        if (DONE) return;
-        DONE = true;
+        if (!InitOnce.markDone("QuestHooks")) return;
 
         // KILL: фиксируем факт смерти и определяем атакующего игрока
         ServerLivingEntityEvents.AFTER_DEATH.register((LivingEntity entity, DamageSource source) -> {
@@ -30,8 +27,7 @@ public final class QuestHooks {
             QuestDispatcher.onKill(sw, sp, entity, source);
         });
 
-        // DEAL_DAMAGE / TAKE_DAMAGE: используем ALLOW_DAMAGE как в PassiveSkillHooks
-        // (это событие вызывается перед применением урона, нам достаточно amount)
+        // DEAL_DAMAGE / TAKE_DAMAGE
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             if (!(entity instanceof LivingEntity victim)) return true;
 
@@ -60,13 +56,12 @@ public final class QuestHooks {
             QuestDispatcher.onBreakBlock(sw, sp, state);
         });
 
-        // WAIT_TICKS + COLLECT_ITEM (tick)
-        ServerTickEvents.END_SERVER_TICK.register(QuestHooks::onServerTick);
+        // tick теперь НЕ регистрируется здесь
     }
 
-    private static void onServerTick(MinecraftServer server) {
+    public static void tick(MinecraftServer server) {
         // раз в тик: WAIT_TICKS
-        // раз в 20 тиков: COLLECT_ITEM (чтобы не сканировать инвентарь слишком часто)
+        // раз в 20 тиков: COLLECT_ITEM
         for (ServerWorld sw : server.getWorlds()) {
             long time = sw.getTime();
             boolean doInventoryScan = (time % 20L) == 0L;
