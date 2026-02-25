@@ -5,9 +5,15 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
+import net.minecraft.screen.GenericContainerScreenHandler;
+import net.minecraft.screen.SimpleNamedScreenHandlerFactory;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import su.ggd.ggd_gems_mod.currency.CurrencyService;
+import su.ggd.ggd_gems_mod.currency.bank.BankStorageInventory;
+import su.ggd.ggd_gems_mod.currency.bank.BankStorageState;
 import su.ggd.ggd_gems_mod.currency.net.BankNet;
 
 public final class BankServerHandlers {
@@ -30,10 +36,8 @@ public final class BankServerHandlers {
             Item piastre = getPiastreItem();
             if (piastre == null) return;
 
-            // списываем баланс
             if (!CurrencyService.trySpend(p, amount)) return;
 
-            // выдаём предметами (с разбиением по 64)
             int left = amount;
             while (left > 0) {
                 int give = Math.min(64, left);
@@ -64,6 +68,23 @@ public final class BankServerHandlers {
             }
 
             if (found > 0) CurrencyService.add(p, found);
+        });
+    }
+
+    public static void handleOpenStorage(BankNet.OpenStoragePayload payload, ServerPlayNetworking.Context ctx) {
+        ServerPlayerEntity p = ctx.player();
+
+        ctx.server().execute(() -> {
+            if (!(p.getEntityWorld() instanceof ServerWorld sw)) return;
+
+            BankStorageState state = BankStorageState.get(sw);
+            BankStorageInventory bankInv = new BankStorageInventory(state, p);
+
+            Text title = Text.literal("Хранилище банка");
+            p.openHandledScreen(new SimpleNamedScreenHandlerFactory(
+                    (syncId, playerInv, player) -> GenericContainerScreenHandler.createGeneric9x6(syncId, playerInv, bankInv),
+                    title
+            ));
         });
     }
 }

@@ -34,6 +34,7 @@ public final class NetworkingModuleInit {
 
         ServerPlayNetworking.registerGlobalReceiver(BankNet.WITHDRAW_ID, BankServerHandlers::handleWithdraw);
         ServerPlayNetworking.registerGlobalReceiver(BankNet.DEPOSIT_ALL_ID, BankServerHandlers::handleDepositAll);
+        ServerPlayNetworking.registerGlobalReceiver(BankNet.OPEN_STORAGE_ID, BankServerHandlers::handleOpenStorage);
 
         ServerPlayNetworking.registerGlobalReceiver(NpcTraderNet.BUY_ID, NpcTraderServerHandlers::handleBuy);
 
@@ -64,6 +65,7 @@ public final class NetworkingModuleInit {
 
         PayloadTypeRegistry.playC2S().register(BankNet.WITHDRAW_ID, BankNet.WITHDRAW_CODEC);
         PayloadTypeRegistry.playC2S().register(BankNet.DEPOSIT_ALL_ID, BankNet.DEPOSIT_ALL_CODEC);
+        PayloadTypeRegistry.playC2S().register(BankNet.OPEN_STORAGE_ID, BankNet.OPEN_STORAGE_CODEC);
 
         PayloadTypeRegistry.playS2C().register(NpcTraderNet.OPEN_TRADER_ID, NpcTraderNet.OPEN_TRADER_CODEC);
         PayloadTypeRegistry.playC2S().register(NpcTraderNet.BUY_ID, NpcTraderNet.BUY_CODEC);

@@ -10,6 +10,19 @@ import su.ggd.ggd_gems_mod.root.Ggd_gems_mod;
 public final class BankNet {
     private BankNet() {}
 
+    /**
+     * C2S: просим сервер открыть контейнер хранилища банка.
+     * Сервер открывает ванильный GENERIC_9X6 (как большой сундук).
+     */
+    public static final CustomPayload.Id<OpenStoragePayload> OPEN_STORAGE_ID =
+            new CustomPayload.Id<>(Identifier.of(Ggd_gems_mod.MOD_ID, "bank_open_storage"));
+    public static final PacketCodec<RegistryByteBuf, OpenStoragePayload> OPEN_STORAGE_CODEC =
+            PacketCodec.unit(new OpenStoragePayload());
+
+    public record OpenStoragePayload() implements CustomPayload {
+        @Override public Id<? extends CustomPayload> getId() { return OPEN_STORAGE_ID; }
+    }
+
     public static final CustomPayload.Id<WithdrawPayload> WITHDRAW_ID =
             new CustomPayload.Id<>(Identifier.of(Ggd_gems_mod.MOD_ID, "bank_withdraw"));
     public static final PacketCodec<RegistryByteBuf, WithdrawPayload> WITHDRAW_CODEC =

@@ -1,7 +1,6 @@
 package su.ggd.ggd_gems_mod.client.menu.bank;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -19,6 +18,12 @@ public final class BankScreen extends Screen {
     protected void init() {
         int cx = 10;
         int y = 20;
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("Открыть хранилище"), b -> {
+            ClientPlayNetworking.send(new BankNet.OpenStoragePayload());
+            // контейнер откроет сервер
+        }).dimensions(cx, y, 260, 20).build());
+        y += 24;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("Внести все пиастры из инвентаря"), b -> {
             ClientPlayNetworking.send(new BankNet.DepositAllPayload());
