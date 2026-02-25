@@ -27,10 +27,7 @@ import java.util.*;
 
 public class PassiveSkillsScreen extends Screen {
 
-    // окно
-    private static final int BASE_PANEL_W = 280;
-    private static final int BASE_PANEL_H = 240;
-
+    // fullscreen-in-content layout
     private static final int PAD_X = 12;
 
     private static final int ICON_BOX = 20;
@@ -50,7 +47,7 @@ public class PassiveSkillsScreen extends Screen {
     private static final int TAB_DD_LIST_ROW_H = 18;
     private static final int TAB_DD_LIST_PAD = 2;
     private static final int TAB_DD_MAX_VISIBLE = 7;
-    private static final int TAB_DD_GAP_BELOW = 6; // зазор между списком и контентом
+    private static final int TAB_DD_GAP_BELOW = 6;
 
     // строки
     private static final int ROW_H = 32;
@@ -103,7 +100,7 @@ public class PassiveSkillsScreen extends Screen {
 
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // no-op
+        // no-op (фон рисует RpgMenuScreen)
     }
 
     @Override
@@ -124,12 +121,11 @@ public class PassiveSkillsScreen extends Screen {
 
         visibleSkills = computeVisibleSkills(cfg);
 
-        int panelW = Math.min(BASE_PANEL_W, this.width - 40);
-        int panelH = Math.min(BASE_PANEL_H, this.height - 40);
-        int left = (this.width - panelW) / 2;
-        int top = (this.height - panelH) / 2;
+        int panelW = this.width;
+        int panelH = this.height;
+        int left = 0;
+        int top = 0;
 
-        // dropdown button bounds
         tabDdX = left + PAD_X;
         tabDdY = top + TAB_DD_Y;
         tabDdW = panelW - PAD_X * 2;
@@ -139,7 +135,6 @@ public class PassiveSkillsScreen extends Screen {
                 getSelectedTabLabel(),
                 b -> {
                     tabDropdownOpen = !tabDropdownOpen;
-                    // пересобираем, т.к. меняется headerH и расположение контента
                     this.clearChildren();
                     this.init();
                 }
@@ -147,10 +142,8 @@ public class PassiveSkillsScreen extends Screen {
 
         addDrawableChild(tabDropdownBtn);
 
-        // list bounds (computed based on current open state)
         recomputeTabListBounds();
 
-        // ---- Content + upgrade buttons (visible only) ----
         ScrollContext sc = computeScrollContext(visibleSkills.size());
         scroll = MathHelper.clamp(scroll, 0, sc.maxScroll);
 
@@ -293,7 +286,6 @@ public class PassiveSkillsScreen extends Screen {
         int mx = (int) click.x();
         int my = (int) click.y();
 
-        // dropdown list interactions first
         if (click.button() == 0 && tabDropdownOpen) {
             if (isMouseOverTabList(mx, my)) {
                 int idx = (my - (tabListY + TAB_DD_LIST_PAD)) / TAB_DD_LIST_ROW_H;
@@ -316,7 +308,6 @@ public class PassiveSkillsScreen extends Screen {
             }
         }
 
-        // scrollbar interactions
         if (click.button() == 0 && isMouseOverScrollbar(mx, my)) {
             ScrollContext sc = computeScrollContext(visibleSkills == null ? 0 : visibleSkills.size());
             if (sc.maxScroll > 0) {
@@ -457,23 +448,16 @@ public class PassiveSkillsScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0x88000000);
+        // без overlay/затемнения; фон уже есть в RpgMenuScreen, добавим лёгкую подложку
+        context.fill(0, 0, this.width, this.height, 0x0E000000);
 
-        int panelW = Math.min(BASE_PANEL_W, this.width - 40);
-        int panelH = Math.min(BASE_PANEL_H, this.height - 40);
-        int left = (this.width - panelW) / 2;
-        int top = (this.height - panelH) / 2;
-
-        // panel + border
-        context.fill(left, top, left + panelW, top + panelH, 0xCC000000);
-        context.fill(left, top, left + panelW, top + 1, 0xFF777777);
-        context.fill(left, top + panelH - 1, left + panelW, top + panelH, 0xFF777777);
-        context.fill(left, top, left + 1, top + panelH, 0xFF777777);
-        context.fill(left + panelW - 1, top, left + panelW, top + panelH, 0xFF777777);
+        int panelW = this.width;
+        int panelH = this.height;
+        int left = 0;
+        int top = 0;
 
         super.render(context, mouseX, mouseY, delta);
 
-        // header text
         context.drawTextWithShadow(textRenderer, this.title, left + 12, top + TITLE_Y, 0xFFFFFFFF);
 
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -487,7 +471,6 @@ public class PassiveSkillsScreen extends Screen {
             context.drawTextWithShadow(textRenderer, uiMessage, msgX, msgY, 0xFFFFFF55);
         }
 
-        // render dropdown list above content area
         recomputeTabListBounds();
         TabEntry hoveredTab = null;
 
@@ -498,10 +481,7 @@ public class PassiveSkillsScreen extends Screen {
             int y1 = tabListY + tabListH;
 
             context.fill(x0, y0, x1, y1, 0xEE1A1A1A);
-            context.fill(x0, y0, x1, y0 + 1, 0xFF777777);
-            context.fill(x0, y1 - 1, x1, y1, 0xFF777777);
-            context.fill(x0, y0, x0 + 1, y1, 0xFF777777);
-            context.fill(x1 - 1, y0, x1, y1, 0xFF777777);
+            drawBorder(context, x0, y0, x1 - x0, y1 - y0, 0xFF777777);
 
             int visible = Math.min(TAB_DD_MAX_VISIBLE, Math.max(1, tabs.size()));
             int start = tabDropdownScroll;
@@ -532,7 +512,6 @@ public class PassiveSkillsScreen extends Screen {
             }
         }
 
-        // content area (starts below dropdown if opened)
         if (visibleSkills == null) return;
 
         ScrollContext sc = computeScrollContext(visibleSkills.size());
@@ -659,15 +638,12 @@ public class PassiveSkillsScreen extends Screen {
     }
 
     private ScrollContext computeScrollContext(int totalRows) {
-        int panelW = Math.min(BASE_PANEL_W, this.width - 40);
-        int panelH = Math.min(BASE_PANEL_H, this.height - 40);
-        int left = (this.width - panelW) / 2;
-        int top = (this.height - panelH) / 2;
+        int panelW = this.width;
+        int panelH = this.height;
+        int left = 0;
+        int top = 0;
 
-        // базовый header: до кнопки dropdown
         int headerH = TAB_DD_Y + TAB_DD_H + 10;
-
-        // если dropdown открыт — контент должен начинаться ниже списка
         if (tabDropdownOpen) {
             recomputeTabListBounds();
             headerH = (TAB_DD_Y + TAB_DD_H) + 2 + tabListH + TAB_DD_GAP_BELOW;
@@ -736,6 +712,13 @@ public class PassiveSkillsScreen extends Screen {
         if (cost < 0) cost = Integer.MAX_VALUE;
         if (cost > Integer.MAX_VALUE) cost = Integer.MAX_VALUE;
         return (int) cost;
+    }
+
+    private static void drawBorder(DrawContext ctx, int x, int y, int w, int h, int color) {
+        ctx.fill(x, y, x + w, y + 1, color);
+        ctx.fill(x, y + h - 1, x + w, y + h, color);
+        ctx.fill(x, y, x + 1, y + h, color);
+        ctx.fill(x + w - 1, y, x + w, y + h, color);
     }
 
     @Override

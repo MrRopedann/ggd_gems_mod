@@ -24,6 +24,6 @@ public final class ClientMenuInit {
         RpgMenuPages.register("bank", Text.literal("Банк"), new ItemStack(Items.GOLD_INGOT), BankScreen::new);
 
         // торговля NPC
-        RpgMenuPages.register("trader", Text.literal("Торговля"), new ItemStack(Items.EMERALD), TraderScreen::new);
+        //RpgMenuPages.register("trader", Text.literal("Торговля"), new ItemStack(Items.EMERALD), TraderScreen::new);
     }
 }

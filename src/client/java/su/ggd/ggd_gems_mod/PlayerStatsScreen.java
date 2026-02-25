@@ -21,10 +21,9 @@ import java.util.Locale;
 
 public final class PlayerStatsScreen extends Screen {
 
-    private static final int PANEL_WIDTH = 330;
-    private static final int PANEL_HEIGHT = 250;
-
-    private static final int HEADER_H = 34;
+    // layout внутри content-области RpgMenuScreen
+    private static final int PAD = 10;
+    private static final int HEADER_H = 36;
     private static final int FOOTER_H = 18;
     private static final int ROW_H = 14;
 
@@ -41,7 +40,6 @@ public final class PlayerStatsScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        // прокрутка списка
         int delta = (int) Math.signum(verticalAmount);
         if (delta != 0) {
             scroll -= delta; // колесо вверх => меньше scroll
@@ -52,38 +50,40 @@ public final class PlayerStatsScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        var mc = MinecraftClient.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
         var p = mc.player;
         if (p == null) return;
 
-        int px = (this.width - PANEL_WIDTH) / 2;
-        int py = (this.height - PANEL_HEIGHT) / 2;
+        // ВАЖНО: никаких overlay/центральных панелей — используем весь this.width/this.height
+        int px = 0;
+        int py = 0;
+        int w = this.width;
+        int h = this.height;
 
-        // затемнение
-        ctx.fill(0, 0, this.width, this.height, 0xAA000000);
+        // лёгкий фон (можно убрать, если хочешь полностью прозрачный)
+        ctx.fill(px, py, px + w, py + h, 0x12000000);
 
-        // панель + рамка
-        ctx.fill(px, py, px + PANEL_WIDTH, py + PANEL_HEIGHT, 0xCC1E1E1E);
-        drawBorder(ctx, px, py, PANEL_WIDTH, PANEL_HEIGHT, 0xFFAA8833);
-
-        // заголовок
-        ctx.drawTextWithShadow(textRenderer, "СТАТЫ ПЕРСОНАЖА", px + 12, py + 10, 0xFFFFD700);
-        ctx.fill(px + 12, py + 26, px + PANEL_WIDTH - 12, py + 27, 0xFF555555);
+        // header
+        int headerY = py + PAD;
+        ctx.drawTextWithShadow(textRenderer, "СТАТЫ ПЕРСОНАЖА", px + PAD, headerY + 2, 0xFFFFD700);
+        ctx.fill(px + PAD, headerY + 18, px + w - PAD, headerY + 19, 0xFF555555);
 
         ItemStack mainHand = p.getMainHandStack();
 
-        // собираем строки
         List<StatLine> lines = buildLines();
-        int contentH = PANEL_HEIGHT - HEADER_H - FOOTER_H;
+
+        int contentTop = py + PAD + HEADER_H;
+        int contentBottom = py + h - PAD - FOOTER_H;
+        int contentH = Math.max(1, contentBottom - contentTop);
+
         int visibleRows = Math.max(1, contentH / ROW_H);
         int maxScroll = Math.max(0, lines.size() - visibleRows);
-        if (scroll < 0) scroll = 0;
-        if (scroll > maxScroll) scroll = maxScroll;
+        scroll = clamp(scroll, 0, maxScroll);
 
-        int x = px + 14;
-        int y = py + HEADER_H;
+        int x = px + PAD;
+        int y = contentTop;
 
-        // рисуем видимый диапазон
+        // Видимый диапазон
         int start = scroll;
         int end = Math.min(lines.size(), start + visibleRows);
 
@@ -97,11 +97,11 @@ public final class PlayerStatsScreen extends Screen {
             y += ROW_H;
         }
 
-        // футер
+        // footer
         String footer = (maxScroll > 0)
                 ? String.format(Locale.ROOT, "Колесо — прокрутка  (%d/%d)", scroll + 1, maxScroll + 1)
                 : "ESC — закрыть";
-        ctx.drawTextWithShadow(textRenderer, footer, px + 12, py + PANEL_HEIGHT - 14, 0xFFAAAAAA);
+        ctx.drawTextWithShadow(textRenderer, footer, px + PAD, py + h - PAD - 12, 0xFFAAAAAA);
     }
 
     /* -------------------- Lines -------------------- */
@@ -155,7 +155,6 @@ public final class PlayerStatsScreen extends Screen {
         }
     }
 
-    // Для статов, которые напрямую на игроке (включая броню/ботинки и т.п.)
     private static Stat readAttr(net.minecraft.entity.player.PlayerEntity p, String attrId) {
         RegistryEntry<EntityAttribute> entry = attrEntry(attrId);
         if (entry == null) return new Stat(0, 0, 0);
@@ -168,7 +167,6 @@ public final class PlayerStatsScreen extends Screen {
         return new Stat(base, total - base, total);
     }
 
-    // Для статов, где итог зависит от предмета в MAINHAND
     private static Stat readAttrWithMainHand(net.minecraft.entity.player.PlayerEntity p, ItemStack mainHand, String attrId) {
         Stat baseStat = readAttr(p, attrId);
 
@@ -211,11 +209,11 @@ public final class PlayerStatsScreen extends Screen {
 
     private static RegistryEntry<EntityAttribute> attrEntry(String idOrPath) {
         Identifier id = Identifier.tryParse(idOrPath);
-        if (id == null) {
-            id = Identifier.of("minecraft", idOrPath);
-        }
+        if (id == null) id = Identifier.of("minecraft", idOrPath);
+
         EntityAttribute attr = Registries.ATTRIBUTE.get(id);
         if (attr == null) return null;
+
         return Registries.ATTRIBUTE.getEntry(attr);
     }
 
@@ -232,7 +230,6 @@ public final class PlayerStatsScreen extends Screen {
     }
 
     private static String fmt2(double v) {
-        // компактно: без лишних нулей
         if (Math.abs(v - Math.rint(v)) < 1e-9) return String.format(Locale.US, "%.0f", v);
         return String.format(Locale.US, "%.3f", v);
     }
@@ -242,10 +239,7 @@ public final class PlayerStatsScreen extends Screen {
         return (v >= 0) ? ("+" + s) : ("-" + s);
     }
 
-    private static void drawBorder(DrawContext ctx, int x, int y, int w, int h, int color) {
-        ctx.fill(x, y, x + w, y + 1, color);                 // top
-        ctx.fill(x, y + h - 1, x + w, y + h, color);         // bottom
-        ctx.fill(x, y, x + 1, y + h, color);                 // left
-        ctx.fill(x + w - 1, y, x + w, y + h, color);         // right
+    private static int clamp(int v, int min, int max) {
+        return Math.max(min, Math.min(max, v));
     }
 }

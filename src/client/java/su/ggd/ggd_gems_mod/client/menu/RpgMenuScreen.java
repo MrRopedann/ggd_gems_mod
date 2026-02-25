@@ -20,11 +20,9 @@ import java.util.Map;
 
 /**
  * Единое окно для RPG-систем мода: статы, пассивки, квесты и будущие вкладки.
+ * FULLSCREEN: панель занимает весь экран, без затемнения фона.
  */
 public final class RpgMenuScreen extends Screen {
-
-    private static final int PANEL_W = 420;
-    private static final int PANEL_H = 260;
 
     private static final int NAV_W = 110;
     private static final int PAD = 10;
@@ -33,6 +31,10 @@ public final class RpgMenuScreen extends Screen {
     // header
     private static final int HEADER_H = 34;
     private static final int HEAD_SIZE = 24;
+
+    // close button
+    private static final int CLOSE_W = 22;
+    private static final int CLOSE_H = 20;
 
     // nav scrolling
     private int navScrollIndex = 0;
@@ -52,6 +54,8 @@ public final class RpgMenuScreen extends Screen {
     private int headerX, headerY, headerW, headerH;
     private int navX, navY, navW, navH;
     private int contentX, contentY, contentW, contentH;
+
+    private ButtonWidget closeButton;
 
     public RpgMenuScreen(String initialPageId) {
         super(Text.literal("Меню"));
@@ -86,15 +90,41 @@ public final class RpgMenuScreen extends Screen {
         }
 
         computeLayout();
+
+        // Кнопка закрытия "X" (в header справа)
+        closeButton = ButtonWidget.builder(Text.literal("X"), b -> this.close())
+                .dimensions(headerX + headerW - CLOSE_W, headerY + (headerH - CLOSE_H) / 2, CLOSE_W, CLOSE_H)
+                .build();
+        addDrawableChild(closeButton);
+
+        rebuildNavButtons();
+        ensureActivePageInit();
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        super.resize(width, height);
+        // пересобрать виджеты под новый размер
+        this.clearChildren();
+        this.pageButtons.clear();
+        // pageScreens оставляем, но их нужно переinit под новые contentW/H
+        computeLayout();
+
+        closeButton = ButtonWidget.builder(Text.literal("X"), b -> this.close())
+                .dimensions(headerX + headerW - CLOSE_W, headerY + (headerH - CLOSE_H) / 2, CLOSE_W, CLOSE_H)
+                .build();
+        addDrawableChild(closeButton);
+
         rebuildNavButtons();
         ensureActivePageInit();
     }
 
     private void computeLayout() {
-        panelW = Math.min(PANEL_W, this.width - 40);
-        panelH = Math.min(PANEL_H, this.height - 40);
-        panelX = (this.width - panelW) / 2;
-        panelY = (this.height - panelH) / 2;
+        // FULLSCREEN
+        panelX = 0;
+        panelY = 0;
+        panelW = this.width;
+        panelH = this.height;
 
         headerX = panelX + PAD;
         headerY = panelY + PAD;
@@ -183,12 +213,12 @@ public final class RpgMenuScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // overlay
-        ctx.fill(0, 0, this.width, this.height, 0x88000000);
+        // БЕЗ затемнения фона: не рисуем overlay
 
-        // panel
+        // panel (на весь экран)
         ctx.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xCC0F0F0F);
-        // border
+
+        // border по краям экрана
         ctx.fill(panelX, panelY, panelX + panelW, panelY + 1, 0xFF777777);
         ctx.fill(panelX, panelY + panelH - 1, panelX + panelW, panelY + panelH, 0xFF777777);
         ctx.fill(panelX, panelY, panelX + 1, panelY + panelH, 0xFF777777);
@@ -214,7 +244,7 @@ public final class RpgMenuScreen extends Screen {
             }
         }
 
-        // кнопки/виджеты
+        // кнопки/виджеты (включая X)
         super.render(ctx, mouseX, mouseY, delta);
 
         // highlight selected tab
@@ -267,7 +297,7 @@ public final class RpgMenuScreen extends Screen {
         int headX = headerX + 6;
         int headY = headerY + (headerH - HEAD_SIZE) / 2;
 
-        // Иконка игрока: PLAYER_HEAD (предмет). Это компилируется везде.
+        // Иконка игрока
         drawScaledItem(ctx, new ItemStack(Items.PLAYER_HEAD), headX, headY, HEAD_SIZE);
 
         int textX = headX + HEAD_SIZE + 8;
@@ -276,17 +306,12 @@ public final class RpgMenuScreen extends Screen {
         int level = mc.player.experienceLevel;
 
         long money = CurrencyClientState.get();
-
         ItemStack moneyIcon = getPiastreIconStack();
 
-        // Name
         ctx.drawText(this.textRenderer, Text.literal(name), textX, headerY + 6, 0xFFFFFFFF, false);
-
-        // Level
         ctx.drawText(this.textRenderer, Text.literal("Уровень: " + level), textX, headerY + 6 + 12, 0xFFDDDDDD, false);
 
-        // Money (right)
-        int rightX = headerX + headerW - 6;
+        int rightX = headerX + headerW - 6 - CLOSE_W - 6; // учесть кнопку X справа
         String moneyText = String.valueOf(money);
         int moneyTextW = this.textRenderer.getWidth(moneyText);
 

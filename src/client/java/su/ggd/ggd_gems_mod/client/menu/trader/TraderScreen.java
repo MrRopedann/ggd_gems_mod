@@ -29,6 +29,10 @@ public final class TraderScreen extends Screen {
     private int visibleRows = 1;
     private int maxScroll = 0;
 
+    private static final int RIGHT_PAD = 10;
+    private static final int PRICE_PAD = 6; // отступ цены от правого края
+    private static final int PRICE_X_MIN = 220; // чтобы не налезать на название (можешь подстроить)
+
     private final List<ButtonWidget> buyButtons = new ArrayList<>();
 
     public TraderScreen() {
@@ -137,35 +141,50 @@ public final class TraderScreen extends Screen {
             var t = trades.get(i);
             ItemStack stack = t.stack();
 
-            // Иконка
-            int iconY = y + (ROW_H - ICON_SIZE) / 2;
-            ctx.drawItem(stack, ICON_X, iconY);
-
-            // Оверлей количества/прочности (вместо drawItemInSlot)
-            ctx.drawStackOverlay(this.textRenderer, stack, ICON_X, iconY);
-
-            // Текст
-            String line = stack.getName().getString() + " x" + stack.getCount() + " — " + t.price();
-            ctx.drawText(textRenderer, Text.literal(line), TEXT_X, y + 6, 0xFFFFFFFF, false);
-
-            // hover
-            int rowLeft = ICON_X;
-            int rowRight = this.width - 10;
             int rowTop = y;
             int rowBottom = y + ROW_H;
 
-            if (mouseX >= rowLeft && mouseX <= rowRight && mouseY >= rowTop && mouseY <= rowBottom) {
+            int rowLeft = LEFT_PAD;
+            int rowRight = this.width - RIGHT_PAD;
+
+            boolean hovered = mouseX >= rowLeft && mouseX <= rowRight && mouseY >= rowTop && mouseY <= rowBottom;
+
+            // Подсветка + рамка
+            if (hovered) {
+                // мягкая подсветка
+                ctx.fill(rowLeft, rowTop, rowRight, rowBottom, 0x33FFFFFF);
+                // рамка
+                drawRectOutline(ctx, rowLeft, rowTop, rowRight, rowBottom, 0x66FFFFFF);
                 hoveredStack = stack;
+            } else {
+                // легкая рамка для читаемости (можешь убрать, если не нужно)
+                drawRectOutline(ctx, rowLeft, rowTop, rowRight, rowBottom, 0x22FFFFFF);
             }
+
+            // Иконка
+            int iconY = y + (ROW_H - ICON_SIZE) / 2;
+            ctx.drawItem(stack, ICON_X, iconY);
+            ctx.drawStackOverlay(this.textRenderer, stack, ICON_X, iconY);
+
+            // Левая часть (название + count)
+            String leftLine = stack.getName().getString() + " x" + stack.getCount();
+            ctx.drawText(textRenderer, Text.literal(leftLine), TEXT_X, y + 6, 0xFFFFFFFF, false);
+
+            // Правая колонка цены (выровнять вправо)
+            String priceStr = String.valueOf(t.price());
+            int priceW = textRenderer.getWidth(priceStr);
+
+            // чтобы цена не наезжала на название — ограничим минимум X
+            int priceX = Math.max(PRICE_X_MIN, (this.width - RIGHT_PAD - PRICE_PAD - priceW));
+            ctx.drawText(textRenderer, Text.literal(priceStr), priceX, y + 6, 0xFFDDDDDD, false);
 
             y += ROW_H;
         }
 
-        // Tooltip: у твоей версии нужен MinecraftClient
+        // Tooltip
         if (!hoveredStack.isEmpty()) {
-            MinecraftClient mc = this.client;
-            if (mc != null) {
-                ctx.drawTooltip(this.textRenderer, getTooltipFromItem(mc, hoveredStack), mouseX, mouseY);
+            if (this.client != null) {
+                ctx.drawTooltip(this.textRenderer, getTooltipFromItem(this.client, hoveredStack), mouseX, mouseY);
             }
         }
     }
@@ -184,6 +203,17 @@ public final class TraderScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    private static void drawRectOutline(DrawContext ctx, int left, int top, int right, int bottom, int argb) {
+        // верх
+        ctx.fill(left, top, right, top + 1, argb);
+        // низ
+        ctx.fill(left, bottom - 1, right, bottom, argb);
+        // лево
+        ctx.fill(left, top, left + 1, bottom, argb);
+        // право
+        ctx.fill(right - 1, top, right, bottom, argb);
     }
 
     private static int clamp(int v, int min, int max) {

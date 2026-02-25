@@ -6,7 +6,6 @@ import net.minecraft.block.CarpetBlock;
 import net.minecraft.block.LeavesBlock;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnRestriction;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.mob.MobEntity;
@@ -108,14 +107,23 @@ public final class DayHostileSpawner {
         if (!world.getBlockState(spawnPos).getCollisionShape(world, spawnPos).isEmpty()) return false;
         if (!world.getBlockState(spawnPos.up()).getCollisionShape(world, spawnPos.up()).isEmpty()) return false;
 
+        // --- Свет: либо ограничение (старый режим), либо игнор + взвешенный шанс ---
+        int light = world.getLightLevel(spawnPos); // 0..15
+
         if (!cfg.daytimeIgnoreLight) {
-            int light = world.getLightLevel(spawnPos);
             int max = MathHelper.clamp(cfg.daytimeMaxLight, 0, 15);
             if (light > max) return false;
         }
 
+        if (cfg.daytimeLightWeightedChance) {
+            double chance = computeChanceByLight(cfg, light);
+            if (world.getRandom().nextDouble() > chance) return false;
+        }
+
         EntityType<? extends MobEntity> type = pickHostileType(world, spawnPos);
-        Entity e = type.create(world, cfg.daytimeIgnoreLight ? SpawnReason.EVENT : SpawnReason.NATURAL);
+
+        // EVENT: не упираемся в NATURAL ограничения, включая свет
+        Entity e = type.create(world, SpawnReason.EVENT);
         if (!(e instanceof MobEntity mob)) return false;
 
         mob.refreshPositionAndAngles(
@@ -123,17 +131,50 @@ public final class DayHostileSpawner {
                 world.getRandom().nextFloat() * 360.0f, 0.0f
         );
 
-        if (!cfg.daytimeIgnoreLight) {
-            if (!SpawnRestriction.canSpawn(type, world, SpawnReason.NATURAL, spawnPos, world.getRandom())) return false;
-        } else {
-            if (!customCanSpawnOnSurface(world, spawnPos)) return false;
-        }
+        // Кастомная проверка места (без vanilla SpawnRestriction)
+        if (!customCanSpawnOnSurface(world, spawnPos)) return false;
 
-        mob.initialize(world, world.getLocalDifficulty(spawnPos),
-                cfg.daytimeIgnoreLight ? SpawnReason.EVENT : SpawnReason.NATURAL,
-                null);
+        mob.initialize(world, world.getLocalDifficulty(spawnPos), SpawnReason.EVENT, null);
 
         return world.spawnEntity(mob);
+    }
+
+    private static double computeChanceByLight(MobRulesConfig cfg, int light0to15) {
+        int l = MathHelper.clamp(light0to15, 0, 15);
+
+        double min = cfg.daytimeChanceMinAtLight15;
+        double max = cfg.daytimeChanceMaxAtLight0;
+
+        if (!Double.isFinite(min)) min = 0.25;
+        if (!Double.isFinite(max)) max = 1.0;
+
+        min = clamp01(min);
+        max = clamp01(max);
+
+        // если кто-то выставил min > max — нормализуем
+        if (min > max) {
+            double tmp = min;
+            min = max;
+            max = tmp;
+        }
+
+        double power = cfg.daytimeChanceCurvePower;
+        if (!Double.isFinite(power) || power < 0.1) power = 1.0;
+        if (power > 10.0) power = 10.0;
+
+        // t=0 (темно) -> 0, t=1 (светло) -> 1
+        double t = l / 15.0;
+        double shaped = Math.pow(t, power);
+
+        // t=0 => chance=max, t=1 => chance=min
+        double chance = max - (max - min) * shaped;
+        return clamp01(chance);
+    }
+
+    private static double clamp01(double v) {
+        if (v < 0.0) return 0.0;
+        if (v > 1.0) return 1.0;
+        return v;
     }
 
     private static double nearestPlayerDistance(ServerWorld world, BlockPos pos) {
