@@ -80,7 +80,7 @@ public final class BankStorageInventory implements Inventory {
 
     @Override
     public void markDirty() {
-        state.markDirtyAndCleanup(player);
+        state.save(player, stacks);
     }
 
     @Override
